@@ -1,9 +1,8 @@
-Flask
+flask
 openai
-python-dotenv
-PyMuPDF
-requests
-beautifulsoup4
+google-generativeai
+pymupdf
 chromadb
-langchain
-docx
+langchain-openai
+psycopg2
+python-dotenv
