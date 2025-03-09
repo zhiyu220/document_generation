@@ -5,8 +5,10 @@ import google.generativeai as genai
 import fitz  # PyMuPDF
 import chromadb
 from langchain_openai import OpenAIEmbeddings
+import psycopg2
 import re
 import random
+import json 
 from dotenv import load_dotenv
 
 # ==== Flask 設定 ====
