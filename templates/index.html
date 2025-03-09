@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>RAG 備審資料系統</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+
+  <body>
+    <h1>RAG 備審資料系統</h1>
+
+    <h3>選擇學校 & 學系</h3>
+    <select id="university"></select>
+    <select id="department"></select>
+    <button onclick="loadGuidelines()">確認</button>
+
+    <h3>📄欲生成段落</h3>
+    <select id="section_code" onchange="updateFieldsBasedOnSelection()">
+      <option value="ABC">課程學習成果</option>
+      <option value="N">多元表現綜整</option>
+      <option value="O">學習歷程反思</option>
+      <option value="P">學習動機</option>
+      <option value="Q">未來計畫</option>
+    </select>
+
+    <h3>📌請分別填寫各項目內容</h3>
+    <div id="fields"></div>
+
+    <h3>📝報告風格</h3>
+    <select id="style">
+      <option value="formal">正式</option>
+      <option value="casual">口語</option>
+      <option value="concise">簡潔</option>
+      <option value="detailed">深入分析</option>
+    </select>
+
+    <button onclick="generateParagraph()">生成</button>
+    <div id="loading-overlay">
+      <div id="loading-spinner">
+        <div id="spinner-icon"></div>
+        <!-- 這是轉圈圈 -->
+        ⏳ 內容生成中，請稍候...
+      </div>
+    </div>
+
+    <h3>📄 生成結果</h3>
+    <div id="test_parameters"></div>
+    <div id="output"></div>
+    <script>
+      let SECTION_MAPPING = {};
+
+      // 載入學校
+      function loadUniversities() {
+        $.get("/get_schools_departments", function (data) {
+          $("#university").empty();
+          for (let uni in data) {
+            $("#university").append(`<option value="${uni}">${uni}</option>`);
+          }
+          loadDepartments();
+        });
+      }
+
+      // 載入該學校的學系
+      function loadDepartments() {
+        let university = $("#university").val();
+        $("#department").empty();
+        $.get("/get_schools_departments", function (data) {
+          for (let dept of data[university]) {
+            $("#department").append(`<option value="${dept}">${dept}</option>`);
+          }
+        });
+      }
+
+      // 確認學系後載入該學系的備審資料
+      function loadGuidelines() {
+        let university = $("#university").val();
+        let department = $("#department").val();
+
+        if (!university || !department) {
+          alert("請選擇學校與學系！");
+          return;
+        }
+
+        $.post(
+          "/get_guidelines",
+          JSON.stringify({ university, department }),
+          function (data) {
+            $("#section_code").empty();
+            SECTION_MAPPING = data.sections;
+
+            for (let sectionCode in SECTION_MAPPING) {
+              let sectionName = SECTION_MAPPING[sectionCode].name;
+              $("#section_code").append(
+                `<option value="${sectionCode}">${sectionName}</option>`
+              );
+            }
+
+            updateFieldsBasedOnSelection();
+          },
+          "json"
+        ).fail(function () {
+          alert("載入備審資料失敗，請檢查學校與學系是否正確！");
+        });
+      }
+
+      // 更新可輸入的欄位
+      function updateFieldsBasedOnSelection() {
+        let sectionCode = $("#section_code").val();
+        let fieldsDiv = $("#fields");
+        fieldsDiv.empty();
+
+        if (SECTION_MAPPING[sectionCode]) {
+          let requirements = SECTION_MAPPING[sectionCode].requirements.split(
+            ","
+          );
+
+          requirements.forEach((code) => {
+            let label = `<label><strong>${code} - ${getCodeName(code)}</strong></label>`;
+            let textarea = `<textarea id="input_${code}" rows="5" cols="50" maxlength="300"></textarea>`;
+            let charCount = `<div id="charCount_${code}">剩餘字數: <span>300</span></div>`;
+
+            fieldsDiv.append(label, textarea, charCount, "<br>");
+          });
+
+          $("textarea").on("input", function () {
+            updateCharCount(this);
+          });
+        }
+      }
+
+      // 監聽字數變化
+      function updateCharCount(textarea) {
+        let maxLength = textarea.maxLength;
+        let currentLength = textarea.value.length;
+        let remaining = maxLength - currentLength;
+        $(`#charCount_${textarea.id.replace("input_", "")}`).html(
+          `剩餘字數: <span>${remaining}</span>`
+        );
+      }
+
+      function getCodeName(code) {
+        const CODE_MAPPING = {
+          A: "修課紀錄",
+          B: "書面報告",
+          C: "實作作品",
+          D: "自然科學探究",
+          E: "社會領域探究",
+          F: "高中自主學習計畫",
+          G: "社團活動經驗",
+          H: "幹部經驗",
+          I: "服務學習經驗",
+          J: "競賽表現",
+          K: "非修課成果作品",
+          L: "檢定證照",
+          M: "特殊優良表現",
+          N: "多元表現綜整心得",
+          O: "高中學習歷程反思",
+          P: "學習動機",
+          Q: "未來學習計畫",
+        };
+        return CODE_MAPPING[code] || "未知項目";
+      }
+
+      function generateParagraph() {
+        let university = $("#university").val();
+        let department = $("#department").val();
+        let sectionCode = $("#section_code").val();
+        let style = $("#style").val();
+        let userInputs = {};
+
+        $("textarea").each(function () {
+          if ($(this).val().trim() !== "") {
+            let code = this.id.replace("input_", "");
+            userInputs[code] = $(this).val();
+          }
+        });
+
+        if (!sectionCode) {
+          alert("請選擇要生成的段落");
+          return;
+        }
+
+        $("#loading-overlay").show();
+        $("#output").empty();
+
+        $.post(
+          "/generate_paragraph",
+          JSON.stringify({
+            university,
+            department,
+            section_code: sectionCode,
+            user_inputs: userInputs,
+            style,
+          }),
+          function (data) {
+            $("#loading-overlay").hide();
+            $("#test_parameters").html(`
+              <p>🔹 生成次數: <strong>${data.generation_steps}</strong></p>
+              <p>🔹 風格: <strong>${data.style}</strong></p>
+              <p>🔹 調整程度: <strong>${data.adjust_percentage}%</strong></p>
+            `);
+            $("#output").text(data.generated_text);
+          },
+          "json"
+        ).fail(function () {
+          $("#loading-overlay").hide();
+          alert("發生錯誤，請重試！");
+        });
+      }
+
+      $(document).ready(loadUniversities);
+    </script>
+  </body>
+</html>
