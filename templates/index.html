@@ -18,7 +18,7 @@
     <select id="department"></select>
     <button onclick="loadGuidelines()">確認</button>
 
-    <h3>📄欲生成段落</h3>
+    <h3>📄 欲生成段落</h3>
     <select id="section_code" onchange="updateFieldsBasedOnSelection()">
       <option value="ABC">課程學習成果</option>
       <option value="N">多元表現綜整</option>
@@ -128,21 +128,22 @@
         fieldsDiv.empty();
 
         if (SECTION_MAPPING[sectionCode]) {
-          let sectionName = SECTION_MAPPING[sectionCode].name;
-          let requirementsText = SECTION_MAPPING[sectionCode].requirements;
-          let requirements = requirementsText.includes(",")
-            ? requirementsText.split(",")
-            : [requirementsText];
+          let sectionCodes = SECTION_MAPPING[sectionCode]; // 取得參採項目
 
-          requirements.forEach((code) => {
+          sectionCodes.forEach((code) => {
             let requirementName = CODE_MAPPING[code] || "未知項目";
-            let label = `<label><strong>${code} - ${getCodeName(
-              code
-            )}</strong></label>`;
+            let label = `<label><strong>${code} - ${requirementName}</strong></label>`;
             let textarea = `<textarea id="input_${code}" rows="5" cols="50" maxlength="300"></textarea>`;
             let charCount = `<div id="charCount_${code}">剩餘字數: <span>300</span></div>`;
 
-            fieldsDiv.append(label, textarea, charCount, "<br>");
+            fieldsDiv.append(
+              label,
+              "<br>",
+              textarea,
+              "<br>",
+              charCount,
+              "<br>"
+            );
           });
 
           // 綁定即時字數計算
@@ -154,13 +155,12 @@
 
       // 監聽字數變化
       function updateCharCount(textarea) {
-        let maxLength = parseInt($(textarea).attr("maxlength"));
+        let maxLength = parseInt($(textarea).attr("maxlength"), 10);
         let currentLength = $(textarea).val().length;
         let remaining = maxLength - currentLength;
-        let countId = `#charCount_${$(textarea)
-          .attr("id")
-          .replace("input_", "")}`;
-        $(countId).find("span").text(remaining);
+
+        let charCountDiv = $(`#charCount_${textarea.id.split("_")[1]}`);
+        charCountDiv.find("span").text(remaining);
       }
 
       function getCodeName(code) {
