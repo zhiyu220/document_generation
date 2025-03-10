@@ -155,11 +155,15 @@
               return;
             }
 
+            // 只保留該學系的要求內容（`section code`）
+            SECTION_MAPPING = {};
             for (let sectionCode in data.sections) {
-              if (SECTION_MAPPING[sectionCode]) {
-                SECTION_MAPPING[sectionCode]["loaded_content"] =
-                  data.sections[sectionCode].content;
-              }
+                if (["ABC", "N", "O", "P", "Q"].includes(sectionCode)) {
+                    SECTION_MAPPING[sectionCode] = {
+                        "codes": data.sections[sectionCode].codes || [],
+                        "loaded_content": data.sections[sectionCode].content
+                    };
+                }
             }
 
             updateFieldsBasedOnSelection();
