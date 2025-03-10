@@ -51,28 +51,32 @@
     <div id="test_parameters"></div>
     <div id="output"></div>
     <script>
+      let schoolData = {};
       let SECTION_MAPPING = {};
 
       // 載入學校
       function loadUniversities() {
         $.get("/get_schools_departments", function (data) {
-          $("#university").empty();
+          schoolData = data;
+          $("#university")
+            .empty()
+            .append('<option value="">請選擇學校</option>');
           for (let uni in data) {
             $("#university").append(`<option value="${uni}">${uni}</option>`);
           }
-          loadDepartments();
         });
       }
 
-      // 載入該學校的學系
+      // 載入該學校的學系（直接從 schoolData 取得）
       function loadDepartments() {
         let university = $("#university").val();
-        $("#department").empty();
-        $.get("/get_schools_departments", function (data) {
-          for (let dept of data[university]) {
+        $("#department").empty().append('<option value="">請選擇學系</option>');
+
+        if (university && schoolData[university]) {
+          for (let dept of schoolData[university]) {
             $("#department").append(`<option value="${dept}">${dept}</option>`);
           }
-        });
+        }
       }
 
       // 確認學系後載入該學系的備審資料
@@ -89,17 +93,24 @@
           "/get_guidelines",
           JSON.stringify({ university, department }),
           function (data) {
-            $("#section_code").empty();
+            $("#section_code")
+              .empty()
+              .append('<option value="">請選擇段落</option>');
             SECTION_MAPPING = data.sections;
+
+            if (!SECTION_MAPPING || Object.keys(SECTION_MAPPING).length === 0) {
+              alert("該學系目前沒有備審資料！");
+              return;
+            }
 
             for (let sectionCode in SECTION_MAPPING) {
               let sectionName = SECTION_MAPPING[sectionCode].name;
               $("#section_code").append(
-                `<option value="${sectionCode}">${sectionName}</option>`
+                `<option value="${sectionCode}">${sectionName} (${sectionCode})</option>`
               );
             }
 
-            updateFieldsBasedOnSelection();
+            updateFieldsBasedOnSelection(); // 初始化顯示
           },
           "json"
         ).fail(function () {
@@ -114,18 +125,22 @@
         fieldsDiv.empty();
 
         if (SECTION_MAPPING[sectionCode]) {
-          let requirements = SECTION_MAPPING[sectionCode].requirements.split(
-            ","
-          );
+          let requirementsText = SECTION_MAPPING[sectionCode].requirements;
+          let requirements = requirementsText.includes(",")
+            ? requirementsText.split(",")
+            : [requirementsText];
 
           requirements.forEach((code) => {
-            let label = `<label><strong>${code} - ${getCodeName(code)}</strong></label>`;
+            let label = `<label><strong>${code} - ${getCodeName(
+              code
+            )}</strong></label>`;
             let textarea = `<textarea id="input_${code}" rows="5" cols="50" maxlength="300"></textarea>`;
             let charCount = `<div id="charCount_${code}">剩餘字數: <span>300</span></div>`;
 
             fieldsDiv.append(label, textarea, charCount, "<br>");
           });
 
+          // 綁定即時字數計算
           $("textarea").on("input", function () {
             updateCharCount(this);
           });
@@ -134,12 +149,13 @@
 
       // 監聽字數變化
       function updateCharCount(textarea) {
-        let maxLength = textarea.maxLength;
-        let currentLength = textarea.value.length;
+        let maxLength = parseInt($(textarea).attr("maxlength"));
+        let currentLength = $(textarea).val().length;
         let remaining = maxLength - currentLength;
-        $(`#charCount_${textarea.id.replace("input_", "")}`).html(
-          `剩餘字數: <span>${remaining}</span>`
-        );
+        let countId = `#charCount_${$(textarea)
+          .attr("id")
+          .replace("input_", "")}`;
+        $(countId).find("span").text(remaining);
       }
 
       function getCodeName(code) {
@@ -212,7 +228,14 @@
         });
       }
 
-      $(document).ready(loadUniversities);
+      // 綁定事件
+      $(document).ready(function () {
+        loadUniversities();
+
+        $("#university").change(loadDepartments);
+        $("#department").change(loadGuidelines);
+        $("#section_code").change(updateFieldsBasedOnSelection);
+      });
     </script>
   </body>
 </html>
