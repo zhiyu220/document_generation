@@ -16,6 +16,7 @@
     <h3>選擇學校 & 學系</h3>
     <select id="university"></select>
     <select id="department"></select>
+    <br />
     <button onclick="loadGuidelines()">確認</button>
 
     <h3>📄 欲生成段落</h3>
@@ -38,6 +39,7 @@
       <option value="detailed">深入分析</option>
     </select>
 
+    <br />
     <button onclick="generateParagraph()">生成</button>
     <div id="loading-overlay">
       <div id="loading-spinner">
@@ -48,8 +50,11 @@
     </div>
 
     <h3>📄 生成結果</h3>
-    <div id="test_parameters"></div>
-    <div id="output"></div>
+    <div id="output" style="white-space: pre-line;"></div>
+    <button id="download-docx" style="display: none" onclick="downloadDocx()">
+      📥下載 Word
+    </button>
+
     <script>
       let schoolData = {};
       let SECTION_MAPPING = {
@@ -155,17 +160,14 @@
               return;
             }
 
-            // 只保留該學系的要求內容（`section code`）
-            SECTION_MAPPING = {};
-            for (let sectionCode in data.sections) {
-              if (["ABC", "N", "O", "P", "Q"].includes(sectionCode)) {
-                SECTION_MAPPING[sectionCode] = {
-                  codes: data.sections[sectionCode].codes || [],
-                  loaded_content: data.sections[sectionCode].content,
-                };
-              }
-            }
+            // 存入 sessionStorage 方便 `updateFieldsBasedOnSelection()` 使用
+            sessionStorage.setItem(
+              `${university}_${department}_sections`,
+              JSON.stringify(data.sections)
+            );
 
+            // 固定 `section_code` 選單
+            $("#section_code").val(""); // 重置選擇
             updateFieldsBasedOnSelection();
           },
           error: function () {
@@ -175,39 +177,63 @@
       }
 
       // 更新可輸入的欄位
-      function updateFieldsBasedOnSelection(
-        requiredSections = [],
-        sectionData = {}
-      ) {
+      function updateFieldsBasedOnSelection() {
         let sectionCode = document.getElementById("section_code").value;
         let fieldsDiv = document.getElementById("fields");
         fieldsDiv.innerHTML = ""; // 清空輸入區塊
 
-        // 如果當前選擇的 `section_code` 不在學系要求內，則不顯示輸入框
-        if (!requiredSections.includes(sectionCode)) {
-          console.log("該學系不需要此段落:", sectionCode);
+        // 確保 SECTION_MAPPING 有該 sectionCode
+        if (!SECTION_MAPPING.hasOwnProperty(sectionCode)) {
+          console.log("無效的 section_code:", sectionCode);
           return;
         }
 
-        let content = sectionData[sectionCode]?.content || ""; // 預填寫內容
+        let requiredCodes = SECTION_MAPPING[sectionCode].codes || [];
+        let selectedUniversity = $("#university").val();
+        let selectedDepartment = $("#department").val();
+        let storedSections = sessionStorage.getItem(
+          `${selectedUniversity}_${selectedDepartment}_sections`
+        );
+        let availableSections = storedSections
+          ? JSON.parse(storedSections)
+          : {};
 
-        // 創建 Textarea
-        let textarea = document.createElement("textarea");
-        textarea.id = `input_${sectionCode}`;
-        textarea.rows = 5;
-        textarea.cols = 50;
-        textarea.maxLength = 300;
-        textarea.value = content;
-        textarea.addEventListener("input", () => updateCharCount(textarea));
+        // 只顯示學系要求的 codes
+        requiredCodes.forEach((code) => {
+          if (availableSections.hasOwnProperty(code)) {
+            let label = document.createElement("label");
+            label.innerHTML = `<strong>${code} - ${getCodeName(code)}</strong>`;
+            label.style.display = "block";
+            fieldsDiv.appendChild(label);
 
-        // 創建字數統計
-        let charCount = document.createElement("div");
-        charCount.id = `charCount_${sectionCode}`;
-        charCount.innerHTML = `剩餘字數: <span>${textarea.maxLength}</span>`;
+            // 顯示content
+            let contentDiv = document.createElement("div");
+            contentDiv.innerHTML = `<em>${
+              availableSections[code].content || "（無提供參考內容）"
+            }</em>`;
+            contentDiv.style.fontSize = "14px";
+            contentDiv.style.color = "#666";
+            contentDiv.style.marginBottom = "5px";
+            fieldsDiv.appendChild(contentDiv);
 
-        fieldsDiv.appendChild(textarea);
-        fieldsDiv.appendChild(charCount);
-        fieldsDiv.appendChild(document.createElement("br"));
+            // 建立 Textarea
+            let textarea = document.createElement("textarea");
+            textarea.id = `input_${code}`;
+            textarea.rows = 5;
+            textarea.cols = 50;
+            textarea.maxLength = 300;
+            textarea.addEventListener("input", () => updateCharCount(textarea));
+
+            // 建立字數統計
+            let charCount = document.createElement("div");
+            charCount.id = `charCount_${code}`;
+            charCount.innerHTML = `剩餘字數: <span>${textarea.maxLength}</span>`;
+
+            fieldsDiv.appendChild(textarea);
+            fieldsDiv.appendChild(charCount);
+            fieldsDiv.appendChild(document.createElement("br"));
+          }
+        });
       }
 
       function updateCharCount(textarea) {
@@ -258,47 +284,109 @@
           return;
         }
 
-        // **只提交學系需要的 `section_code`**
-        let textarea = $(`#input_${sectionCode}`);
-        if (textarea.val().trim() !== "") {
-          userInputs[sectionCode] = textarea.val();
+        console.log("檢查所有 textarea 值：");
+
+        let hasInput = false;
+        $("textarea").each(function () {
+          let code = this.id.replace("input_", ""); // 獲取 section code
+          let value = $(this).val(); // 取得使用者輸入值
+
+          console.log(`🔹 ${code} => ${value}`); // 檢查所有 textarea 是否有讀取到
+
+          if (value !== undefined && value.trim() !== "") {
+            userInputs[code] = value.trim();
+            hasInput = true;
+          }
+        });
+
+        if (!hasInput) {
+          alert("請至少填寫一個輸入框後再生成段落！");
+          return;
         }
 
-        $("#loading-overlay").show();
-        $("#output").empty();
+        console.log("送出的JSON數據:", {
+          university,
+          department,
+          section_code: sectionCode,
+          user_inputs: userInputs,
+          style,
+        });
 
-        $.post(
-          "/generate_paragraph",
-          JSON.stringify({
+        $("#loading-overlay").fadeIn();
+        $("#output").empty();
+        $("#download-docx").hide();
+
+        $.ajax({
+          url: "/generate_paragraph",
+          type: "POST",
+          contentType: "application/json",
+          data: JSON.stringify({
             university,
             department,
             section_code: sectionCode,
             user_inputs: userInputs,
             style,
           }),
-          function (data) {
-            $("#loading-overlay").hide();
-            $("#test_parameters").html(`
-              <p>🔹 生成次數: <strong>${data.generation_steps}</strong></p>
-              <p>🔹 風格: <strong>${data.style}</strong></p>
-              <p>🔹 調整程度: <strong>${data.adjust_percentage}%</strong></p>
-            `);
+          dataType: "json",
+          success: function (data) {
+            $("#loading-overlay").fadeOut();
             $("#output").text(data.generated_text);
+            $("#download-docx").show();
+
+            // 存儲生成內容
+            window.generatedDocxData = {
+              university,
+              department,
+              section_code: sectionCode,
+              generated_text: data.generated_text,
+            };
           },
-          "json"
-        ).fail(function () {
-          $("#loading-overlay").hide();
-          alert("發生錯誤，請重試！");
+          error: function (xhr, status, error) {
+            $("#loading-overlay").fadeOut();
+            console.error("AJAX 錯誤:", status, error);
+            console.error("伺服器回應:", xhr.responseText);
+            alert("發生錯誤，請重試！");
+          },
+        });
+      }
+
+      function downloadDocx() {
+        if (!window.generatedDocxData) {
+          alert("請先生成內容！");
+          return;
+        }
+
+        $.ajax({
+          url: "/generate_docx",
+          type: "POST",
+          contentType: "application/json",
+          data: JSON.stringify(window.generatedDocxData),
+          xhrFields: {
+            responseType: "blob",
+          },
+          success: function (blob) {
+            let link = document.createElement("a");
+            link.href = window.URL.createObjectURL(blob);
+            link.download = `${window.generatedDocxData.department}_${window.generatedDocxData.section_code}.docx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          },
+          error: function () {
+            alert("下載失敗，請重試！");
+          },
         });
       }
 
       // 綁定事件
       $(document).ready(function () {
+        $("#loading-overlay").hide();
         loadUniversities();
 
         $("#university").change(loadDepartments);
         $("#department").change(loadGuidelines);
         $("#section_code").change(updateFieldsBasedOnSelection);
+        $("#section_code").val("ABC").trigger("change");
       });
     </script>
   </body>
