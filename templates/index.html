@@ -89,10 +89,13 @@
           return;
         }
 
-        $.post(
-          "/get_guidelines",
-          JSON.stringify({ university, department }),
-          function (data) {
+        $.ajax({
+          url: "/get_guidelines",
+          type: "POST",
+          contentType: "application/json", // 確保 Content-Type 為 JSON
+          data: JSON.stringify({ university, department }),
+          dataType: "json",
+          success: function (data) {
             $("#section_code")
               .empty()
               .append('<option value="">請選擇段落</option>');
@@ -112,9 +115,9 @@
 
             updateFieldsBasedOnSelection(); // 初始化顯示
           },
-          "json"
-        ).fail(function () {
-          alert("載入備審資料失敗，請檢查學校與學系是否正確！");
+          error: function () {
+            alert("載入備審資料失敗，請檢查學校與學系是否正確！");
+          },
         });
       }
 
