@@ -53,11 +53,59 @@
     <script>
       let schoolData = {};
       let SECTION_MAPPING = {
-        "ABC": { "codes": ["A", "B", "C", "D", "E"] },
-        "N": { "codes": ["F", "G", "H", "I", "J", "K", "L", "M"] },
-        "O": { "codes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"] },
-        "P": { "codes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"] },
-        "Q": { "codes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"] }
+        ABC: { codes: ["A", "B", "C", "D", "E"] },
+        N: { codes: ["F", "G", "H", "I", "J", "K", "L", "M"] },
+        O: {
+          codes: [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J",
+            "K",
+            "L",
+            "M",
+          ],
+        },
+        P: {
+          codes: [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J",
+            "K",
+            "L",
+            "M",
+          ],
+        },
+        Q: {
+          codes: [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J",
+            "K",
+            "L",
+            "M",
+          ],
+        },
       };
 
       // 載入學校
@@ -168,6 +216,29 @@
         if (charCountDiv) {
           charCountDiv.innerHTML = `剩餘字數: <span>${remaining}</span>`;
         }
+      }
+
+      function getCodeName(code) {
+        const CODE_MAPPING = {
+          A: "修課紀錄",
+          B: "書面報告",
+          C: "實作作品",
+          D: "自然科學探究",
+          E: "社會領域探究",
+          F: "高中自主學習計畫",
+          G: "社團活動經驗",
+          H: "幹部經驗",
+          I: "服務學習經驗",
+          J: "競賽表現",
+          K: "非修課成果作品",
+          L: "檢定證照",
+          M: "特殊優良表現",
+          N: "多元表現綜整心得",
+          O: "高中學習歷程反思",
+          P: "學習動機",
+          Q: "未來學習計畫",
+        };
+        return CODE_MAPPING[code] || "未知項目";
       }
 
       function generateParagraph() {
