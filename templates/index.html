@@ -52,7 +52,13 @@
     <div id="output"></div>
     <script>
       let schoolData = {};
-      let SECTION_MAPPING = {};
+      let SECTION_MAPPING = {
+        "ABC": { "codes": ["A", "B", "C", "D", "E"] },
+        "N": { "codes": ["F", "G", "H", "I", "J", "K", "L", "M"] },
+        "O": { "codes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"] },
+        "P": { "codes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"] },
+        "Q": { "codes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"] }
+      };
 
       // 載入學校
       function loadUniversities() {
@@ -92,28 +98,23 @@
         $.ajax({
           url: "/get_guidelines",
           type: "POST",
-          contentType: "application/json", // 確保 Content-Type 為 JSON
+          contentType: "application/json",
           data: JSON.stringify({ university, department }),
           dataType: "json",
           success: function (data) {
-            $("#section_code")
-              .empty()
-              .append('<option value="">請選擇段落</option>');
-            SECTION_MAPPING = data.sections;
-
-            if (!SECTION_MAPPING || Object.keys(SECTION_MAPPING).length === 0) {
+            if (!data.sections) {
               alert("該學系目前沒有備審資料！");
               return;
             }
 
-            for (let sectionCode in SECTION_MAPPING) {
-              let sectionName = SECTION_MAPPING[sectionCode].name;
-              $("#section_code").append(
-                `<option value="${sectionCode}">${sectionName} (${sectionCode})</option>`
-              );
+            for (let sectionCode in data.sections) {
+              if (SECTION_MAPPING[sectionCode]) {
+                SECTION_MAPPING[sectionCode]["loaded_content"] =
+                  data.sections[sectionCode].content;
+              }
             }
 
-            updateFieldsBasedOnSelection(); // 初始化顯示
+            updateFieldsBasedOnSelection();
           },
           error: function () {
             alert("載入備審資料失敗，請檢查學校與學系是否正確！");
@@ -125,42 +126,34 @@
       function updateFieldsBasedOnSelection() {
         let sectionCode = document.getElementById("section_code").value;
         let fieldsDiv = document.getElementById("fields");
-        fieldsDiv.innerHTML = ""; // 清空舊的輸入區塊
+        fieldsDiv.innerHTML = "";
 
-        // 確保 `sectionCode` 存在於 `SECTION_MAPPING`
         if (
-          SECTION_MAPPING.hasOwnProperty(sectionCode) &&
+          SECTION_MAPPING[sectionCode] &&
           SECTION_MAPPING[sectionCode].codes
         ) {
           SECTION_MAPPING[sectionCode].codes.forEach((code) => {
-            let requirementName = CODE_MAPPING[code] || "未知項目";
-
-            // 創建 Label
             let label = document.createElement("label");
-            label.innerHTML = `<strong>${code} - ${requirementName}</strong>`;
-            label.style.display = "block"; // 確保 label 獨立一行
+            label.innerHTML = `<strong>${code} - ${getCodeName(code)}</strong>`;
             fieldsDiv.appendChild(label);
 
-            // 創建 Textarea
             let textarea = document.createElement("textarea");
             textarea.id = `input_${code}`;
             textarea.rows = 5;
             textarea.cols = 50;
             textarea.maxLength = 300;
+            textarea.value =
+              SECTION_MAPPING[sectionCode]["loaded_content"] || "";
             textarea.addEventListener("input", () => updateCharCount(textarea));
-            fieldsDiv.appendChild(textarea);
 
-            // 創建字數統計
             let charCount = document.createElement("div");
             charCount.id = `charCount_${code}`;
             charCount.innerHTML = `剩餘字數: <span>${textarea.maxLength}</span>`;
-            fieldsDiv.appendChild(charCount);
 
-            // 插入換行
+            fieldsDiv.appendChild(textarea);
+            fieldsDiv.appendChild(charCount);
             fieldsDiv.appendChild(document.createElement("br"));
           });
-        } else {
-          console.error("❌ 未找到對應的段落代碼:", sectionCode);
         }
       }
 
@@ -175,29 +168,6 @@
         if (charCountDiv) {
           charCountDiv.innerHTML = `剩餘字數: <span>${remaining}</span>`;
         }
-      }
-
-      function getCodeName(code) {
-        const CODE_MAPPING = {
-          A: "修課紀錄",
-          B: "書面報告",
-          C: "實作作品",
-          D: "自然科學探究",
-          E: "社會領域探究",
-          F: "高中自主學習計畫",
-          G: "社團活動經驗",
-          H: "幹部經驗",
-          I: "服務學習經驗",
-          J: "競賽表現",
-          K: "非修課成果作品",
-          L: "檢定證照",
-          M: "特殊優良表現",
-          N: "多元表現綜整心得",
-          O: "高中學習歷程反思",
-          P: "學習動機",
-          Q: "未來學習計畫",
-        };
-        return CODE_MAPPING[code] || "未知項目";
       }
 
       function generateParagraph() {
