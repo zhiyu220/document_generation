@@ -128,12 +128,14 @@
         fieldsDiv.empty();
 
         if (SECTION_MAPPING[sectionCode]) {
+          let sectionName = SECTION_MAPPING[sectionCode].name;
           let requirementsText = SECTION_MAPPING[sectionCode].requirements;
           let requirements = requirementsText.includes(",")
             ? requirementsText.split(",")
             : [requirementsText];
 
           requirements.forEach((code) => {
+            let requirementName = CODE_MAPPING[code] || "未知項目";
             let label = `<label><strong>${code} - ${getCodeName(
               code
             )}</strong></label>`;
