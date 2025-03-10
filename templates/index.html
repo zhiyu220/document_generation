@@ -127,8 +127,8 @@
         let fieldsDiv = $("#fields");
         fieldsDiv.empty();
 
-        if (SECTION_MAPPING[sectionCode]) {
-          let sectionCodes = SECTION_MAPPING[sectionCode]; // 取得參採項目
+        if (SECTION_MAPPING.hasOwnProperty(sectionCode)) {
+          let sectionCodes = SECTION_MAPPING[sectionCode]; // 確保是固定的參採項目
 
           sectionCodes.forEach((code) => {
             let requirementName = CODE_MAPPING[code] || "未知項目";
@@ -153,7 +153,6 @@
         }
       }
 
-      // 監聽字數變化
       function updateCharCount(textarea) {
         let maxLength = parseInt($(textarea).attr("maxlength"), 10);
         let currentLength = $(textarea).val().length;
