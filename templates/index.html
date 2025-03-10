@@ -158,12 +158,12 @@
             // 只保留該學系的要求內容（`section code`）
             SECTION_MAPPING = {};
             for (let sectionCode in data.sections) {
-                if (["ABC", "N", "O", "P", "Q"].includes(sectionCode)) {
-                    SECTION_MAPPING[sectionCode] = {
-                        "codes": data.sections[sectionCode].codes || [],
-                        "loaded_content": data.sections[sectionCode].content
-                    };
-                }
+              if (["ABC", "N", "O", "P", "Q"].includes(sectionCode)) {
+                SECTION_MAPPING[sectionCode] = {
+                  codes: data.sections[sectionCode].codes || [],
+                  loaded_content: data.sections[sectionCode].content,
+                };
+              }
             }
 
             updateFieldsBasedOnSelection();
@@ -180,13 +180,13 @@
         let fieldsDiv = document.getElementById("fields");
         fieldsDiv.innerHTML = "";
 
-        if (
-          SECTION_MAPPING[sectionCode] &&
-          SECTION_MAPPING[sectionCode].codes
-        ) {
-          SECTION_MAPPING[sectionCode].codes.forEach((code) => {
+        if (SECTION_MAPPING.hasOwnProperty(sectionCode)) {
+          let sectionData = SECTION_MAPPING[sectionCode];
+
+          sectionData.codes.forEach((code) => {
             let label = document.createElement("label");
             label.innerHTML = `<strong>${code} - ${getCodeName(code)}</strong>`;
+            label.style.display = "block";
             fieldsDiv.appendChild(label);
 
             let textarea = document.createElement("textarea");
@@ -194,8 +194,6 @@
             textarea.rows = 5;
             textarea.cols = 50;
             textarea.maxLength = 300;
-            textarea.value =
-              SECTION_MAPPING[sectionCode]["loaded_content"] || "";
             textarea.addEventListener("input", () => updateCharCount(textarea));
 
             let charCount = document.createElement("div");
