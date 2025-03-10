@@ -75,10 +75,29 @@ STYLE_PROMPTS = {
     "detailed": "請撰寫深入分析的內容，提供具體論據和例子，表達完整。",
 }
 
-# ==== 檢索學系特色 (從向量資料庫) ====
-def retrieve_department_features():
-    results = collection.query(query_texts=["學系特色", "學系培養目標"], n_results=3)
-    return "\n".join(results["documents"][0]) if "documents" in results and results["documents"] else "未找到學系特色。"
+# ==== 提取學系特色 (優先從資料庫，其次從向量資料庫) ====
+def get_department_features(university, department):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT features FROM department_features 
+        WHERE university = %s AND department = %s
+    """, (university, department))
+    result = cursor.fetchone()
+    
+    cursor.close()
+    conn.close()
+
+    if result:
+        return result[0]  # **如果資料庫有學系特色，則回傳**
+    
+    # **如果資料庫無結果，則查詢向量資料庫**
+    vector_search = collection.query(query_texts=[f"{university} {department} 學系特色"], n_results=1)
+    if "documents" in vector_search and vector_search["documents"]:
+        return vector_search["documents"][0]
+    
+    return "未提供學系特色"
 
 # ==== 獲取所有學校與學系 ====
 @app.route("/get_schools_departments", methods=["GET"])
@@ -111,33 +130,30 @@ def get_guidelines():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # **查詢 application_guidelines**
     cursor.execute("""
-        SELECT section_code, section_name, requirements, content, department_features 
+        SELECT section_code, section_name, content 
         FROM application_guidelines 
         WHERE university=%s AND department=%s
     """, (university, department))
     results = cursor.fetchall()
+
+    # **查詢 department_features**
+    department_features = get_department_features(university, department)
+
     cursor.close()
     conn.close()
 
     if not results:
         return jsonify({"error": "該學校學系尚無備審資料"}), 400
 
-    sections = {}
-    for row in results:
-        sections[row[0]] = {
-            "name": row[1],
-            "requirements": row[2],
-            "content": row[3]
-        }
-        if row[4]:  # 讀取學系特色
-            department_features = row[4]
+    sections = {row[0]: {"name": row[1], "content": row[2]} for row in results}
 
     return jsonify({
         "university": university,
         "department": department,
         "sections": sections,
-        "department_features": department_features or "未提供學系特色"
+        "department_features": department_features
     })
 
 # ==== 進入 index ====
@@ -152,14 +168,12 @@ def generate_paragraph():
     
     section_code = data.get("section_code")
     user_inputs = data.get("user_inputs", {})
-    department_name = data.get("department_name", "未知學系")
-    #風格
-    style = data.get("style", "formal")  # 預設風格為正式
-    #字數
+    university = data.get("university", "未知大學")
+    department = data.get("department", "未知學系")
+    style = data.get("style", "formal")  
     min_words = data.get("min_words", 800)
     max_words = data.get("max_words", 1000)
     word_count = random.randint(min_words, max_words)
-    #調整程度
     adjust_percentage = 30
     
     if section_code not in SECTION_MAPPING:
@@ -167,9 +181,7 @@ def generate_paragraph():
     
      # **獲取學系特色**
     department_features = get_department_features(university, department)
-    if not department_features:
-        department_features = retrieve_department_features()  # 從向量資料庫補充
-
+        
     # **獲取撰寫指引 (section_prompt)**
     section_prompt = SECTION_MAPPING[section_code]["prompt"]
     
@@ -256,7 +268,6 @@ def generate_paragraph():
     improved_output = gemini_response.text.strip()
 
     return jsonify({
-        "generation_steps": N,
         "style": style,
         "adjust_percentage": adjust_percentage,
         "generated_text": improved_output
