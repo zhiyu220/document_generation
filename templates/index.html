@@ -123,43 +123,58 @@
 
       // 更新可輸入的欄位
       function updateFieldsBasedOnSelection() {
-        let sectionCode = $("#section_code").val();
-        let fieldsDiv = $("#fields");
-        fieldsDiv.empty();
+        let sectionCode = document.getElementById("section_code").value;
+        let fieldsDiv = document.getElementById("fields");
+        fieldsDiv.innerHTML = ""; // 清空舊的輸入區塊
 
-        if (SECTION_MAPPING.hasOwnProperty(sectionCode)) {
-          let sectionCodes = SECTION_MAPPING[sectionCode]; // 確保是固定的參採項目
-
-          sectionCodes.forEach((code) => {
+        // 確保 `sectionCode` 存在於 `SECTION_MAPPING`
+        if (
+          SECTION_MAPPING.hasOwnProperty(sectionCode) &&
+          SECTION_MAPPING[sectionCode].codes
+        ) {
+          SECTION_MAPPING[sectionCode].codes.forEach((code) => {
             let requirementName = CODE_MAPPING[code] || "未知項目";
-            let label = `<label><strong>${code} - ${requirementName}</strong></label>`;
-            let textarea = `<textarea id="input_${code}" rows="5" cols="50" maxlength="300"></textarea>`;
-            let charCount = `<div id="charCount_${code}">剩餘字數: <span>300</span></div>`;
 
-            fieldsDiv.append(
-              label,
-              "<br>",
-              textarea,
-              "<br>",
-              charCount,
-              "<br>"
-            );
-          });
+            // 創建 Label
+            let label = document.createElement("label");
+            label.innerHTML = `<strong>${code} - ${requirementName}</strong>`;
+            label.style.display = "block"; // 確保 label 獨立一行
+            fieldsDiv.appendChild(label);
 
-          // 綁定即時字數計算
-          $("textarea").on("input", function () {
-            updateCharCount(this);
+            // 創建 Textarea
+            let textarea = document.createElement("textarea");
+            textarea.id = `input_${code}`;
+            textarea.rows = 5;
+            textarea.cols = 50;
+            textarea.maxLength = 300;
+            textarea.addEventListener("input", () => updateCharCount(textarea));
+            fieldsDiv.appendChild(textarea);
+
+            // 創建字數統計
+            let charCount = document.createElement("div");
+            charCount.id = `charCount_${code}`;
+            charCount.innerHTML = `剩餘字數: <span>${textarea.maxLength}</span>`;
+            fieldsDiv.appendChild(charCount);
+
+            // 插入換行
+            fieldsDiv.appendChild(document.createElement("br"));
           });
+        } else {
+          console.error("❌ 未找到對應的段落代碼:", sectionCode);
         }
       }
 
       function updateCharCount(textarea) {
-        let maxLength = parseInt($(textarea).attr("maxlength"), 10);
-        let currentLength = $(textarea).val().length;
+        let maxLength = textarea.maxLength;
+        let currentLength = textarea.value.length;
         let remaining = maxLength - currentLength;
 
-        let charCountDiv = $(`#charCount_${textarea.id.split("_")[1]}`);
-        charCountDiv.find("span").text(remaining);
+        let charCountDiv = document.getElementById(
+          `charCount_${textarea.id.split("_")[1]}`
+        );
+        if (charCountDiv) {
+          charCountDiv.innerHTML = `剩餘字數: <span>${remaining}</span>`;
+        }
       }
 
       function getCodeName(code) {
