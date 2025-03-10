@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file
 import os
 import openai
 import google.generativeai as genai
@@ -10,6 +10,7 @@ import re
 import random
 import json 
 from dotenv import load_dotenv
+from docx import Document
 
 # ==== Flask 設定 ====
 app = Flask(__name__)
@@ -90,9 +91,9 @@ def get_department_features(university, department):
     conn.close()
 
     if result:
-        return result[0]  # **如果資料庫有學系特色，則回傳**
+        return result[0]  # 如果資料庫有學系特色，則回傳
     
-    # **如果資料庫無結果，則查詢向量資料庫**
+    # 如果資料庫無結果，則查詢向量資料庫
     vector_search = collection.query(query_texts=[f"{university} {department} 學系特色"], n_results=1)
     if "documents" in vector_search and vector_search["documents"]:
         return vector_search["documents"][0]
@@ -130,7 +131,7 @@ def get_guidelines():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # **查詢 application_guidelines**
+    # 查詢 application_guidelines
     cursor.execute("""
         SELECT section_code, section_name, content 
         FROM application_guidelines 
@@ -138,7 +139,7 @@ def get_guidelines():
     """, (university, department))
     results = cursor.fetchall()
 
-    # **查詢 department_features**
+    # 查詢 department_features
     department_features = get_department_features(university, department)
 
     cursor.close()
@@ -171,60 +172,57 @@ def generate_paragraph():
     university = data.get("university", "未知大學")
     department = data.get("department", "未知學系")
     style = data.get("style", "formal")  
-    min_words = data.get("min_words", 800)
-    max_words = data.get("max_words", 1000)
-    word_count = random.randint(min_words, max_words)
+    word_count = random.randint(850, 1000) 
     adjust_percentage = 30
     
     if section_code not in SECTION_MAPPING:
         return jsonify({"error": "無效的段落代碼"}), 400
     
-     # **獲取學系特色**
+     # 獲取學系特色
     department_features = get_department_features(university, department)
         
-    # **獲取撰寫指引 (section_prompt)**
+    # 獲取撰寫指引 (section_prompt)
     section_prompt = SECTION_MAPPING[section_code]["prompt"]
     
     input_text = "\n".join(f"{CODE_MAPPING.get(code, code)}: {text}" for code, text in user_inputs.items() if text)
 
-    # **使用GPT初次生成**
+    # 使用GPT初次生成
     first_prompt = f"""
-    你是一名高中生，正在申請{department_name}，請根據以下內容撰寫 {section_prompt}。
+    你是一名高中生，正在申請{university}-{department}，請根據以下內容撰寫 {section_prompt}。
 
-    **請務必遵守以下規則，嚴格按照使用者提供的內容進行撰寫，不得編造資訊**：
-    1.**只能使用以下學系特色，不得新增額外內容**：{department_features}
-    2.**只能使用使用者提供的內容，不得自行發揮**：{input_text}
-    3.**字數範圍：約 {word_count} 字**
-    4.**風格要求：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}**
-    5.**不得杜撰經歷、不得添加未提供的競賽、活動、學術研究等內容**。
-    6.**內容應清晰、邏輯合理、段落流暢，並忠實呈現使用者輸入的重點**。
+    請務必遵守以下規則，嚴格按照使用者提供的內容進行撰寫，不得編造資訊：
+    1.只能使用以下學系特色，不得新增額外內容：{department_features}
+    2.只能使用使用者提供的內容，不得自行發揮：{input_text}
+    3.字數範圍：約 {word_count} 字
+    4.風格要求：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}
+    5.不得杜撰經歷、不得添加未提供的競賽、活動、學術研究等內容。
+    6.內容應清晰、邏輯合理、段落流暢，並忠實呈現使用者輸入的重點。
 
     請根據這些要求，產生一段符合申請需求的內容。
     """
-
-    response = openai_client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": first_prompt}],
-        temperature=0.6
+    gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+    gemini_response = gemini_model.generate_content(
+        first_prompt, 
+        generation_config={"temperature": 0.6}
     )
-    first_output = response.choices[0].message.content.strip()
-    final_output = first_output
+    first_output = gemini_response.text.strip()
 
-    # **進行 N 次優化**
+    # 進行 N 次優化
     N = 1
     for _ in range(N):
         refine_prompt = f"""
         這是先前生成的內容：
-        {final_output}
+        {first_output}
 
         請根據以下要求進一步優化：
-        1. **請調整語句，使表達方式稍有不同，但仍然保持相同核心內容**
-        2. **請確保字數範圍在 {word_count} 字左右**
-        3. **請保持 {STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])} 的語氣**
-        4. **請讓語句更流暢，避免過於生硬**
-        5.**只能使用以下學系特色，不得新增額外內容**：{department_features}
-        6.**只能使用使用者提供的內容，不得自行發揮**：{input_text}
-        7.**變更幅度：約 {adjust_percentage}%**
+        1. 請調整語句，使表達方式稍有不同，但仍然保持相同核心內容
+        2. 請確保字數範圍在 {word_count} 字左右
+        3. 請保持 {STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])} 的語氣
+        4. 請讓語句更流暢，避免過於生硬
+        5.只能使用以下學系特色，不得新增額外內容：{department_features}
+        6.只能使用使用者提供的內容，不得自行發揮：{input_text}
+        7.變更幅度：約 {adjust_percentage}%
+
         """
          # 動態調整 temperature
         temperature_value = 0.3 + (adjust_percentage / 100) * 0.4
@@ -235,43 +233,64 @@ def generate_paragraph():
         if adjust_percentage > 70:
             refine_prompt += "\n請嘗試用不同的方式表達相同意思，使表達方式多樣化。"
         
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": refine_prompt}],
-            temperature=temperature_value
+        gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+        gemini_response = gemini_model.generate_content(
+            refine_prompt, 
+            generation_config={"temperature": temperature_value}
         )
+        final_output = gemini_response.text.strip()
         
-        generated_text = response.choices[0].message.content.strip()
-        final_output = generated_text
-        
-    # **使用 Gemini 進行語氣優化**
-    gemini_prompt = f"""
+    # 語氣優化
+    improved_prompt = f"""
     這是一篇大學申請備審資料，請幫助我優化語氣，使其更加自然、流暢，並符合申請文件的語氣要求。
 
     目前的內容：
     {final_output}
 
     請確保：
-    1. **保持原始內容的邏輯與重點，不可新增資訊**
-    2. **保持使用者選擇的風格：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}**
-    3. **修正冗長、不自然或不流暢的部分**
-    4. **讓表達方式更有說服力**
+    1. 保持原始內容的邏輯與重點，不可新增資訊
+    2. 保持使用者選擇的風格：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}
+    3. 修正冗長、不自然或不流暢的部分
+    4. 讓表達方式更有說服力
+    5. 請確保每個新段落以 `\n\n` 換行，不要使用markdown語法留下純文字，讓內容清晰易讀。
+    6. 字數範圍：約 {word_count} 字
 
     優化後的內容：
     """
-
-    gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-    gemini_response = gemini_model.generate_content(
-        gemini_prompt, 
-        generation_config={"temperature": 0.7}
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": improved_prompt}],
+        temperature=0.5
     )
-    improved_output = gemini_response.text.strip()
+    improved_output = response.choices[0].message.content.strip()
 
     return jsonify({
         "style": style,
         "adjust_percentage": adjust_percentage,
         "generated_text": improved_output
-    })
+    }), 200, {'Content-Type': 'application/json; charset=utf-8'}
+    
+# ==== 生成 Word 文件 ====
+@app.route("/generate_docx", methods=["POST"])
+def generate_docx():
+    data = request.get_json()
+    university = data.get("university", "未知大學")
+    department = data.get("department", "未知學系")
+    section_code = data.get("section_code", "未知段落")
+    generated_text = data.get("generated_text", "")
+
+    if not generated_text:
+        return jsonify({"error": "沒有生成內容"}), 400
+
+    doc = Document()
+    doc.add_heading(f"{university} - {department}", level=1)
+    doc.add_heading(f"{section_code}", level=2)
+    doc.add_paragraph(generated_text)
+
+    file_path = "generated_report.docx"
+    doc.save(file_path)
+
+    return send_file(file_path, as_attachment=True, download_name=f"{department}_{section_code}.docx")
 
 if __name__ == "__main__":
     app.run(debug=True)
