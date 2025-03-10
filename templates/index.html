@@ -175,36 +175,39 @@
       }
 
       // 更新可輸入的欄位
-      function updateFieldsBasedOnSelection() {
+      function updateFieldsBasedOnSelection(
+        requiredSections = [],
+        sectionData = {}
+      ) {
         let sectionCode = document.getElementById("section_code").value;
         let fieldsDiv = document.getElementById("fields");
-        fieldsDiv.innerHTML = "";
+        fieldsDiv.innerHTML = ""; // 清空輸入區塊
 
-        if (SECTION_MAPPING.hasOwnProperty(sectionCode)) {
-          let sectionData = SECTION_MAPPING[sectionCode];
-
-          sectionData.codes.forEach((code) => {
-            let label = document.createElement("label");
-            label.innerHTML = `<strong>${code} - ${getCodeName(code)}</strong>`;
-            label.style.display = "block";
-            fieldsDiv.appendChild(label);
-
-            let textarea = document.createElement("textarea");
-            textarea.id = `input_${code}`;
-            textarea.rows = 5;
-            textarea.cols = 50;
-            textarea.maxLength = 300;
-            textarea.addEventListener("input", () => updateCharCount(textarea));
-
-            let charCount = document.createElement("div");
-            charCount.id = `charCount_${code}`;
-            charCount.innerHTML = `剩餘字數: <span>${textarea.maxLength}</span>`;
-
-            fieldsDiv.appendChild(textarea);
-            fieldsDiv.appendChild(charCount);
-            fieldsDiv.appendChild(document.createElement("br"));
-          });
+        // 如果當前選擇的 `section_code` 不在學系要求內，則不顯示輸入框
+        if (!requiredSections.includes(sectionCode)) {
+          console.log("該學系不需要此段落:", sectionCode);
+          return;
         }
+
+        let content = sectionData[sectionCode]?.content || ""; // 預填寫內容
+
+        // 創建 Textarea
+        let textarea = document.createElement("textarea");
+        textarea.id = `input_${sectionCode}`;
+        textarea.rows = 5;
+        textarea.cols = 50;
+        textarea.maxLength = 300;
+        textarea.value = content;
+        textarea.addEventListener("input", () => updateCharCount(textarea));
+
+        // 創建字數統計
+        let charCount = document.createElement("div");
+        charCount.id = `charCount_${sectionCode}`;
+        charCount.innerHTML = `剩餘字數: <span>${textarea.maxLength}</span>`;
+
+        fieldsDiv.appendChild(textarea);
+        fieldsDiv.appendChild(charCount);
+        fieldsDiv.appendChild(document.createElement("br"));
       }
 
       function updateCharCount(textarea) {
@@ -250,16 +253,15 @@
         let style = $("#style").val();
         let userInputs = {};
 
-        $("textarea").each(function () {
-          if ($(this).val().trim() !== "") {
-            let code = this.id.replace("input_", "");
-            userInputs[code] = $(this).val();
-          }
-        });
-
         if (!sectionCode) {
           alert("請選擇要生成的段落");
           return;
+        }
+
+        // **只提交學系需要的 `section_code`**
+        let textarea = $(`#input_${sectionCode}`);
+        if (textarea.val().trim() !== "") {
+          userInputs[sectionCode] = textarea.val();
         }
 
         $("#loading-overlay").show();
