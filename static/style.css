@@ -28,7 +28,7 @@ button:hover {
 
 /* 輸入框與選擇框 */
 input[type="file"], input[type="text"], select {
-    width: 100%;
+    width: 50%;
     padding: 8px;
     margin: 5px 0 10px;
     border: 1px solid #ccc;
@@ -79,7 +79,7 @@ label {
 
 /* 讓畫面變暗的背景 */
 #loading-overlay {
-    display: none; /* 預設隱藏 */
+    display: none;  /* 預設隱藏 */
     position: fixed;
     top: 0;
     left: 0;
@@ -87,6 +87,7 @@ label {
     height: 100%;
     background: rgba(0, 0, 0, 0.5); /* 半透明背景 */
     z-index: 1000;
+    display: flex;
     justify-content: center;
     align-items: center;
 }
@@ -103,6 +104,7 @@ label {
     font-weight: bold;
     text-align: center;
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    max-width: 300px;
 }
 
 /* 轉圈動畫 */
@@ -116,7 +118,6 @@ label {
     margin-bottom: 10px;
 }
 
-/* 轉圈的動畫效果 */
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
