@@ -282,15 +282,24 @@ def generate_docx():
     if not generated_text:
         return jsonify({"error": "沒有生成內容"}), 400
 
+    # 建立 Word 文件
     doc = Document()
     doc.add_heading(f"{university} - {department}", level=1)
     doc.add_heading(f"{section_code}", level=2)
     doc.add_paragraph(generated_text)
 
-    file_path = "generated_report.docx"
-    doc.save(file_path)
+    # 直接寫入記憶體，而不儲存到磁碟
+    doc_io = io.BytesIO()
+    doc.save(doc_io)
+    doc_io.seek(0)  # 重置檔案指標，準備讀取
 
-    return send_file(file_path, as_attachment=True, download_name=f"{department}_{section_code}.docx")
+    # 讓使用者下載
+    return send_file(
+        doc_io,
+        as_attachment=True,
+        download_name=f"{department}_{section_code}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
