@@ -8,6 +8,7 @@ import psycopg2
 import json
 from dotenv import load_dotenv
 from docx import Document
+import random
 
 # ==== Flask 設定 ====
 app = Flask(__name__)
@@ -197,12 +198,15 @@ def generate_paragraph():
 
     請根據這些要求，產生一段符合申請需求的內容。
     """
-    gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-    gemini_response = gemini_model.generate_content(
-        first_prompt, 
-        generation_config={"temperature": 0.6}
-    )
-    first_output = gemini_response.text.strip()
+    try:
+        gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+        gemini_response = gemini_model.generate_content(
+            first_prompt, 
+            generation_config={"temperature": 0.6}
+        )
+        first_output = gemini_response.text.strip()
+    except Exception as e:
+        return jsonify({"error": f"Gemini 生成內容時發生錯誤: {str(e)}"}), 500
 
     # 進行 N 次優化
     N = 1
@@ -230,12 +234,15 @@ def generate_paragraph():
         if adjust_percentage > 70:
             refine_prompt += "\n請嘗試用不同的方式表達相同意思，使表達方式多樣化。"
         
-        gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-        gemini_response = gemini_model.generate_content(
-            refine_prompt, 
-            generation_config={"temperature": temperature_value}
-        )
-        final_output = gemini_response.text.strip()
+        try:
+            gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+            gemini_response = gemini_model.generate_content(
+                refine_prompt, 
+                generation_config={"temperature": temperature_value}
+            )
+            final_output = gemini_response.text.strip()
+        except Exception as e:
+            return jsonify({"error": f"Gemini 生成內容時發生錯誤: {str(e)}"}), 500
         
     # 語氣優化
     improved_prompt = f"""
@@ -254,15 +261,18 @@ def generate_paragraph():
 
     優化後的內容：
     """
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": improved_prompt}],
-        temperature=0.5,
-        #max_tokens=int(word_count * 1.3),
-        stop=["優化後的內容："]
-    )
-    improved_output = response.choices[0].message.content.strip()
-
+    try:    
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": improved_prompt}],
+            temperature=0.5,
+            #max_tokens=int(word_count * 1.3),
+            stop=["優化後的內容："]
+        )
+        improved_output = response.choices[0].message.content.strip()
+    except Exception as e:
+        return jsonify({"error": f"GPT 生成內容時發生錯誤: {str(e)}"}), 500
+    
     return jsonify({
         "style": style,
         "adjust_percentage": adjust_percentage,
@@ -288,7 +298,7 @@ def generate_docx():
     doc.add_paragraph(generated_text)
     download_name = f"{university}{department}_{section_code}.docx"
 
-    file_path = f"/tmp/{file_name}"
+    file_path = f"/tmp/{download_name}"
     doc.save(file_path)
 
     return send_file(file_path, as_attachment=True, download_name=f"{university}{department}_{section_code}.docx")
