@@ -1,10 +1,8 @@
 Flask
 openai
 google-generativeai
-PyMuPDF
 chromadb
 langchain-openai
 psycopg2
 python-dotenv
-docx
 python-docx

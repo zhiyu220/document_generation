@@ -50,7 +50,7 @@
     </div>
 
     <h3>📄 生成結果</h3>
-    <div id="output" style="white-space: pre-line;"></div>
+    <div id="output" style="white-space: pre-line"></div>
     <button id="download-docx" style="display: none" onclick="downloadDocx()">
       📥下載 Word
     </button>
@@ -367,7 +367,10 @@
           success: function (blob) {
             let link = document.createElement("a");
             link.href = window.URL.createObjectURL(blob);
-            link.download = `${window.generatedDocxData.department}_${window.generatedDocxData.section_code}.docx`;
+
+            let filename = `${window.generatedDocxData.university}${window.generatedDocxData.department}_${window.generatedDocxData.section_code}.docx`;
+
+            link.download = filename;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -381,6 +384,7 @@
       // 綁定事件
       $(document).ready(function () {
         $("#loading-overlay").hide();
+        $("#output").empty();
         loadUniversities();
 
         $("#university").change(loadDepartments);

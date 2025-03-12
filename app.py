@@ -2,13 +2,10 @@ from flask import Flask, request, jsonify, render_template, send_file
 import os
 import openai
 import google.generativeai as genai
-import fitz  # PyMuPDF
 import chromadb
 from langchain_openai import OpenAIEmbeddings
 import psycopg2
-import re
-import random
-import json 
+import json
 from dotenv import load_dotenv
 from docx import Document
 
@@ -50,11 +47,11 @@ SECTION_MAPPING = {
     },
     "N": {  
         "codes": ["F", "G", "H", "I", "J", "K", "L", "M"],
-        "prompt": "請了解學系專業與選材理念後，撰寫強調自主學習的多元表現綜整心得，包含 100 字引言、3個段落(其中每個段落需有一個標題，總結該段落的內容)，以及總結，並利用使用者輸入的具體事例舉例每件事的能力成長與省思。內容與學系密切相關。"
+        "prompt": "請了解學系專業與選材理念後，撰寫強調自主學習的多元表現綜整心得，包含引言、3個段落(其中每個段落需有一個標題，總結該段落的內容)，以及總結，並利用使用者輸入的具體事例舉例每件事的能力成長與省思。內容與學系密切相關，且必須確保字數在800字內。。"
     },
     "O": {  
         "codes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"],
-        "prompt": "請撰寫高中學習歷程反思，強調學習經驗、挑戰與成長，並舉出失敗與反省以展現學習態度。"
+        "prompt": "請撰寫高中學習歷程反思，強調學習經驗、挑戰與成長，並舉出失敗與反省以展現學習態度。必須確保字數在800字內。"
     },
     "P": {  
         "codes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"],
@@ -172,8 +169,8 @@ def generate_paragraph():
     university = data.get("university", "未知大學")
     department = data.get("department", "未知學系")
     style = data.get("style", "formal")  
-    word_count = random.randint(850, 1000) 
-    adjust_percentage = 30
+    word_count = random.randint(600, 800) 
+    adjust_percentage = random.randint(30, 50) 
     
     if section_code not in SECTION_MAPPING:
         return jsonify({"error": "無效的段落代碼"}), 400
@@ -186,14 +183,14 @@ def generate_paragraph():
     
     input_text = "\n".join(f"{CODE_MAPPING.get(code, code)}: {text}" for code, text in user_inputs.items() if text)
 
-    # 使用GPT初次生成
+    # 使用LLM初次生成
     first_prompt = f"""
     你是一名高中生，正在申請{university}-{department}，請根據以下內容撰寫 {section_prompt}。
 
     請務必遵守以下規則，嚴格按照使用者提供的內容進行撰寫，不得編造資訊：
     1.只能使用以下學系特色，不得新增額外內容：{department_features}
     2.只能使用使用者提供的內容，不得自行發揮：{input_text}
-    3.字數範圍：約 {word_count} 字
+    3.字數範圍：{word_count} 字以內
     4.風格要求：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}
     5.不得杜撰經歷、不得添加未提供的競賽、活動、學術研究等內容。
     6.內容應清晰、邏輯合理、段落流暢，並忠實呈現使用者輸入的重點。
@@ -216,7 +213,7 @@ def generate_paragraph():
 
         請根據以下要求進一步優化：
         1. 請調整語句，使表達方式稍有不同，但仍然保持相同核心內容
-        2. 請確保字數範圍在 {word_count} 字左右
+        2. 請確保字數範圍在 {word_count} 字以內
         3. 請保持 {STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])} 的語氣
         4. 請讓語句更流暢，避免過於生硬
         5.只能使用以下學系特色，不得新增額外內容：{department_features}
@@ -224,7 +221,7 @@ def generate_paragraph():
         7.變更幅度：約 {adjust_percentage}%
 
         """
-         # 動態調整 temperature
+        # 動態調整 temperature
         temperature_value = 0.3 + (adjust_percentage / 100) * 0.4
         if adjust_percentage > 30:
             refine_prompt += "\n請嘗試替換一些詞語，使表達方式更加生動。"
@@ -253,14 +250,16 @@ def generate_paragraph():
     3. 修正冗長、不自然或不流暢的部分
     4. 讓表達方式更有說服力
     5. 請確保每個新段落以 `\n\n` 換行，不要使用markdown語法留下純文字，讓內容清晰易讀。
-    6. 字數範圍：約 {word_count} 字
+    6. 請濃縮在{word_count} 字以內。
 
     優化後的內容：
     """
     response = openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": improved_prompt}],
-        temperature=0.5
+        temperature=0.5,
+        #max_tokens=int(word_count * 1.3),
+        stop=["優化後的內容："]
     )
     improved_output = response.choices[0].message.content.strip()
 
@@ -269,7 +268,7 @@ def generate_paragraph():
         "adjust_percentage": adjust_percentage,
         "generated_text": improved_output
     }), 200, {'Content-Type': 'application/json; charset=utf-8'}
-    
+
 # ==== 生成 Word 文件 ====
 @app.route("/generate_docx", methods=["POST"])
 def generate_docx():
@@ -277,29 +276,22 @@ def generate_docx():
     university = data.get("university", "未知大學")
     department = data.get("department", "未知學系")
     section_code = data.get("section_code", "未知段落")
+    section_name = CODE_MAPPING.get(section_code, section_code)
     generated_text = data.get("generated_text", "")
 
     if not generated_text:
         return jsonify({"error": "沒有生成內容"}), 400
 
-    # 建立 Word 文件
     doc = Document()
-    doc.add_heading(f"{university} - {department}", level=1)
-    doc.add_heading(f"{section_code}", level=2)
+    doc.add_heading(f"{university}-{department}", level=1)
+    doc.add_heading(f"{section_code}{section_name}", level=2)
     doc.add_paragraph(generated_text)
+    download_name = f"{university}{department}_{section_code}.docx"
 
-    # 直接寫入記憶體，而不儲存到磁碟
-    doc_io = io.BytesIO()
-    doc.save(doc_io)
-    doc_io.seek(0)  # 重置檔案指標，準備讀取
+    file_path = f"/tmp/{file_name}"
+    doc.save(file_path)
 
-    # 讓使用者下載
-    return send_file(
-        doc_io,
-        as_attachment=True,
-        download_name=f"{department}_{section_code}.docx",
-        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+    return send_file(file_path, as_attachment=True, download_name=f"{university}{department}_{section_code}.docx")
 
 if __name__ == "__main__":
     app.run(debug=True)
