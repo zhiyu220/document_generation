@@ -6,4 +6,3 @@ langchain-openai
 psycopg2
 python-dotenv
 python-docx
-random
