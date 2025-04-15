@@ -74,6 +74,64 @@ STYLE_PROMPTS = {
     "detailed": "請撰寫深入分析的內容，提供具體論據和例子，表達完整。",
 }
 
+# ==== QA ====
+@app.route("/ask", methods=["POST"])
+def ask_question():
+    data = request.get_json()
+    university = data.get("university")
+    department = data.get("department")
+    question = data.get("question")
+
+    if not university or not department or not question:
+        return jsonify({"answer": "請提供完整的學校、學系與問題內容！"}), 400
+
+    # 取得該學系特色與需繳交資料作為回答基礎
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT section_code, section_name, content 
+        FROM application_guidelines 
+        WHERE university = %s AND department = %s
+    """, (university, department))
+    sections = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    department_features = get_department_features(university, department)
+
+    base_context = "\n".join([
+        f"{code} - {name}：{content}" for code, name, content in sections
+    ]) or "查無備審項目內容。"
+
+    prompt = f"""
+你是一名大學備審客服人員，請針對使用者提出的問題，根據下列內容進行回答：
+- **請務必將每一條條列點獨立寫在新的一行（請用 \n 分隔），不要將多個條列點寫在同一行。**
+
+
+【學校】{university}
+【學系】{department}
+【系所特色】{department_features}
+【備審資料】{base_context}
+
+使用者提問：
+{question}
+
+請以簡潔清楚的語氣回覆，字數不超過150字，必要時可引用學系特色或備審資料，但不得亂編。
+    """
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+        )
+        answer = response.choices[0].message.content.strip()
+        return jsonify({"answer": answer})
+    except Exception as e:
+        return jsonify({"answer": f"⚠️ 回覆錯誤：{str(e)}"}), 500
+
+
+
 # ==== 提取學系特色 (優先從資料庫，其次從向量資料庫) ====
 def get_department_features(university, department):
     conn = get_db_connection()
@@ -98,23 +156,72 @@ def get_department_features(university, department):
     
     return "未提供學系特色"
 
-# ==== 獲取所有學校與學系 ====
-@app.route("/get_schools_departments", methods=["GET"])
-def get_schools_departments():
+# ==== 查詢需繳交資料與學系特色（首頁） ====
+@app.route("/check", methods=["GET", "POST"])
+def check_requirements():
+    results = None
+    department_features = None
+    university = department = ""
+
+    if request.method == "POST":
+        university = request.form.get("university")
+        department = request.form.get("department")
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT section_code, section_name FROM application_guidelines WHERE university=%s AND department=%s", (university, department))
+        results = cursor.fetchall()
+        department_features = get_department_features(university, department)
+        cursor.close()
+        conn.close()
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT university, department FROM application_guidelines")
-    results = cursor.fetchall()
+    all_options = cursor.fetchall()
     cursor.close()
     conn.close()
 
-    schools_departments = {}
-    for university, department in results:
-        if university not in schools_departments:
-            schools_departments[university] = []
-        schools_departments[university].append(department)
+    return render_template(
+        "check_requirements.html",
+        all_options=all_options,
+        results=results,
+        department_features=department_features,
+        university=university,
+        department=department
+    )
 
-    return jsonify(schools_departments)
+# ==== 獲取所有學校與學系(check) ====
+@app.route("/get_departments", methods=["GET"])
+def get_departments_by_school():
+    university = request.args.get("university")
+    if not university:
+        return jsonify([])
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT DISTINCT department 
+        FROM application_guidelines 
+        WHERE university = %s
+    """, (university,))
+    departments = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    
+    return jsonify(departments)
+
+# ==== 獲取所有學校與學系(generator) ====
+@app.route("/get_universities", methods=["GET"])
+def get_universities():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT university FROM application_guidelines")
+    universities = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return jsonify(universities)
+
 
 # ==== 學系備審指引查詢 ====
 @app.route("/get_guidelines", methods=["POST"])
@@ -155,10 +262,21 @@ def get_guidelines():
         "department_features": department_features
     })
 
-# ==== 進入 index ====
+# ==== 首頁 ====
 @app.route("/")
 def index():
     return render_template("index.html")
+
+# ==== 備審段落生成器 ====
+@app.route("/generate", methods=["GET"])
+def generate_page():
+    return render_template("generator.html")
+
+# ==== 查詢備審指引頁（如果有）====
+@app.route("/show_check_page", methods=["GET", "POST"])
+def show_check_page():
+    # 處理查詢資料邏輯
+    return render_template("check_requirements.html")
 
 # ==== 生成段落 ====
 @app.route("/generate_paragraph", methods=["POST"])
