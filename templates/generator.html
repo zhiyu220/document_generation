@@ -24,6 +24,7 @@ content %}
       class="form-control"
       onchange="updateFieldsBasedOnSelection()"
     >
+      <option value="" selected>請選擇要生成的段落</option>
       <option value="ABC">課程學習成果</option>
       <option value="N">多元表現綜整</option>
       <option value="O">學習歷程反思</option>
@@ -32,7 +33,6 @@ content %}
     </select>
   </div>
 
-  <h3>📌 請分別填寫各項目內容</h3>
   <div id="fields"></div>
 
   <div class="form-group">
@@ -83,28 +83,31 @@ content %}
 
   // 載入學校清單
   function loadUniversities() {
-  $.get("/get_universities", function (data) {
-    $("#university").empty().append('<option value="">請選擇學校</option>');
-    data.forEach((uni) => {
-      $("#university").append(`<option value="${uni}">${uni}</option>`);
+    $.get("/get_universities", function (data) {
+      $("#university").empty().append('<option value="">請選擇學校</option>');
+      data.forEach((uni) => {
+        $("#university").append(`<option value="${uni}">${uni}</option>`);
+      });
     });
-  });
-}
-
-function loadDepartments() {
-  let university = $("#university").val();
-  if (!university) {
-    $("#department").empty().append('<option value="">請先選擇學校</option>');
-    return;
   }
 
-  $.get(`/get_departments?university=${encodeURIComponent(university)}`, function (departments) {
-    $("#department").empty().append('<option value="">請選擇學系</option>');
-    departments.forEach((dept) => {
-      $("#department").append(`<option value="${dept}">${dept}</option>`);
-    });
-  });
-}
+  function loadDepartments() {
+    let university = $("#university").val();
+    if (!university) {
+      $("#department").empty().append('<option value="">請先選擇學校</option>');
+      return;
+    }
+
+    $.get(
+      `/get_departments?university=${encodeURIComponent(university)}`,
+      function (departments) {
+        $("#department").empty().append('<option value="">請選擇學系</option>');
+        departments.forEach((dept) => {
+          $("#department").append(`<option value="${dept}">${dept}</option>`);
+        });
+      }
+    );
+  }
 
   // 確認學系後載入該學系的備審資料
   function loadGuidelines() {
@@ -164,9 +167,23 @@ function loadDepartments() {
     );
     let availableSections = storedSections ? JSON.parse(storedSections) : {};
 
+    // 先清空欄位
+    fieldsDiv.innerHTML = "";
+
+    // 如果至少有一個符合的欄位，就加標題
+    let hasValidCodes = requiredCodes.some((code) =>
+      availableSections.hasOwnProperty(code)
+    );
+    if (hasValidCodes) {
+      let title = document.createElement("h4");
+      title.textContent = "📌請於以下各項目輸入至多300字之簡述內容";
+      fieldsDiv.appendChild(title);
+    }
+
     // 只顯示學系要求的 codes
     requiredCodes.forEach((code) => {
       if (availableSections.hasOwnProperty(code)) {
+
         let label = document.createElement("label");
         label.innerHTML = `<strong>${code} - ${getCodeName(code)}</strong>`;
         label.style.display = "block";
@@ -174,9 +191,9 @@ function loadDepartments() {
 
         // 顯示content
         let contentDiv = document.createElement("div");
-        contentDiv.innerHTML = `<em>${
+        contentDiv.innerHTML = `<p>說明：${
           availableSections[code].content || "（無提供參考內容）"
-        }</em>`;
+        }</p>`;
         contentDiv.style.fontSize = "14px";
         contentDiv.style.color = "#666";
         contentDiv.style.marginBottom = "5px";
@@ -356,7 +373,7 @@ function loadDepartments() {
     $("#university").change(loadDepartments);
     $("#department").change(loadGuidelines);
     $("#section_code").change(updateFieldsBasedOnSelection);
-    $("#section_code").val("ABC").trigger("change");
+    $("#section_code").val("").trigger("change");
   });
 </script>
 
