@@ -706,7 +706,7 @@ def clean_paragraph_output(text):
 # ==== 生成段落 ====
 @app.route("/generate_paragraph", methods=["POST"])
 def generate_paragraph():
-    # === 檢查剩餘次數 ===
+    # === 检查剩余次数 ===
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT generation_quota FROM users WHERE id = %s", (current_user.id,))
@@ -715,160 +715,91 @@ def generate_paragraph():
     conn.close()
 
     if result and result[0] != -1 and result[0] <= 0:
-        return jsonify({"error": "❗ 生成次數已用完，請升級為 Premium 會員以獲得更多次數！"}), 403
+        return jsonify({"error": "❗ 生成次数已用完，请升级为 Premium 会员以获得更多次数！"}), 403
     
-    data = request.get_json()
-    
-    section_code = data.get("section_code")
-    user_inputs = data.get("user_inputs", {})
-    university = data.get("university", "未知大學")
-    department = data.get("department", "未知學系")
-    style = data.get("style", "formal")  
-    word_count = random.randint(600, 800) 
-    adjust_percentage = random.randint(30, 50) 
-    
-    if section_code not in SECTION_MAPPING:
-        return jsonify({"error": "無效的段落代碼"}), 400
-    
-     # 獲取學系特色
-    department_features = get_department_features(university, department)
-        
-    # 獲取撰寫指引 (section_prompt)
-    section_prompt = SECTION_MAPPING[section_code]["prompt"]
-    
-    input_text = "\n".join(f"{CODE_MAPPING.get(code, code)}: {text}" for code, text in user_inputs.items() if text)
-
-    # 使用LLM初次生成
-    first_prompt = f"""
-    你是一名高中生，正在申請{university}-{department}，請根據以下內容撰寫 {section_prompt}。
-
-    請務必遵守以下規則，產出一份包含「文字描述」與「HTML 表格」的內容，嚴格按照使用者提供的內容進行撰寫，不得編造資訊：
-    1.只能使用以下學系特色，不得新增額外內容：{department_features}
-    2.只能使用使用者提供的內容，不得自行發揮：{input_text}
-    3.字數範圍：{word_count} 字以內
-    4.風格要求：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}
-    5.不得杜撰經歷、不得添加未提供的競賽、活動、學術研究等內容。
-    6.內容應清晰、邏輯合理、段落流暢，並忠實呈現使用者輸入的重點。
-    7.請根據使用者提供的內容，在每個段落生成內容後額外整理1張HTML表格，每張表格請對應不同活動類型，每張表格需包含：
-      -每一列為一項具體活動
-      -每張表格皆要附上表格標題（用 <h4> 呈現）
-      -欄位數與名稱依據活動類型自訂（例如：活動名稱、職位、挑戰、學習成就等），欄位數請至少三欄，最多五欄
-      請使用標準HTML格式輸出，不需使用 markdown。表格之後可補充 1~2 段文字說明總結你從這些經驗中獲得的能力或成長。
-    8.每張表格的欄位請依據內容情境自訂，不要全部都使用「項目名稱 / 職位 / 收穫」這種固定欄位。請根據活動內容選擇最能突顯重點的欄位名稱，如：
-      -「服務對象」、「挑戰處理」、「學到的能力」
-      -「活動名稱」、「分工職位」、「學習成就」
-      -「專案內容」、「角色」、「參與成果」
-
-表格欄位需清晰具意義，避免模糊詞彙。
-
-    
-    請根據這些要求，產生一段符合申請需求的內容。
-    """
     try:
-        gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-        gemini_response = gemini_model.generate_content(
-            first_prompt, 
-            generation_config={"temperature": 0.6}
-        )
-        first_output = gemini_response.text.strip()
-    except Exception as e:
-        return jsonify({"error": f"Gemini 生成內容時發生錯誤: {str(e)}"}), 500
-
-    # 進行 N 次優化
-    N = 1
-    for _ in range(N):
-        refine_prompt = f"""
-        這是先前生成的內容：
-        {first_output}
-
-        請根據以下要求進一步優化：
-        1. 請調整語句，使表達方式稍有不同，但仍然保持相同核心內容
-        2. 請確保字數範圍在 {word_count} 字以內
-        3. 請保持 {STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])} 的語氣
-        4. 請讓語句更流暢，避免過於生硬
-        5.只能使用以下學系特色，不得新增額外內容：{department_features}
-        6.只能使用使用者提供的內容，不得自行發揮：{input_text}
-        7.變更幅度：約 {adjust_percentage}%
-
-        """
-        # 動態調整 temperature
-        temperature_value = 0.3 + (adjust_percentage / 100) * 0.4
-        if adjust_percentage > 30:
-            refine_prompt += "\n請嘗試替換一些詞語，使表達方式更加生動。"
-        if adjust_percentage > 50:
-            refine_prompt += "\n請嘗試變換句子結構，使內容更加流暢自然。"
-        if adjust_percentage > 70:
-            refine_prompt += "\n請嘗試用不同的方式表達相同意思，使表達方式多樣化。"
+        data = request.get_json()
         
+        section_code = data.get("section_code")
+        user_inputs = data.get("user_inputs", {})
+        university = data.get("university", "未知大学")
+        department = data.get("department", "未知学系")
+        style = data.get("style", "formal")  
+        word_count = random.randint(600, 800) 
+        adjust_percentage = random.randint(30, 50) 
+        
+        if section_code not in SECTION_MAPPING:
+            return jsonify({"error": "无效的段落代码"}), 400
+        
+        # 获取学系特色
+        department_features = get_department_features(university, department)
+            
+        # 获取撰写指引 (section_prompt)
+        section_prompt = SECTION_MAPPING[section_code]["prompt"]
+        
+        input_text = "\n".join(f"{CODE_MAPPING.get(code, code)}: {text}" for code, text in user_inputs.items() if text)
+
+        # 使用 Gemini 进行初次生成
         try:
             gemini_model = genai.GenerativeModel("gemini-2.0-flash")
             gemini_response = gemini_model.generate_content(
-                refine_prompt, 
-                generation_config={"temperature": temperature_value}
+                first_prompt, 
+                generation_config={"temperature": 0.6},
+                timeout=180  # 设置超时时间为 180 秒
             )
-            final_output = gemini_response.text.strip()
+            first_output = gemini_response.text.strip()
         except Exception as e:
-            return jsonify({"error": f"Gemini 生成內容時發生錯誤: {str(e)}"}), 500
-        
-    # 語氣優化
-    improved_prompt = f"""
-    你是一位擅長潤飾大學申請備審資料的語言專家，請協助我修改以下備審資料，使其自然流暢，語氣真誠，並保留原有內容重點。
+            print(f"Gemini 生成失败: {str(e)}")
+            return jsonify({"error": f"内容生成失败: {str(e)}"}), 500
 
-    目前的內容：
-    {final_output}
-
-    請確保：
-    1.不可新增資訊，只能在原始內容基礎上進行潤飾與語句調整
-    2.風格請採用：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}
-    3.請避免使用以下 AI 常見用語或句型：如「總體而言」、「本文將探討」、「綜上所述」、「在當今社會中」、「產生深遠影響」、「我堅信」等
-    4.請避免過於工整、生硬、過度學術化的句式結構，讓整體語氣更貼近一位真誠且有思考力的高中學生口吻
-    5.每個新段落請用 \n\n 分隔，輸出為純文字，不使用 Markdown 語法
-    6.請將文字濃縮至 {word_count} 字以內，保留關鍵資訊與主要邏輯，刪除重複或不必要的詞語，使內容更精練但不失自然語感。
-    7.若內容中已包含 HTML `<table>` 表格，請保留表格原樣，並確保其與前後段落語意銜接順暢，不需修改表格內容或結構。
-    
-    優化後的內容：
-    """
-    try:    
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": improved_prompt}],
-            temperature=0.5,
-            stop=["優化後的內容："]
-        )
-        improved_output = response.choices[0].message.content.strip()
-        
-        # === 儲存生成紀錄 ===
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        history_id = generate_random_id()
-        cursor.execute("""
-            INSERT INTO generation_history 
-            (id, user_id, university, department, section_code, generated_text, mindmap_data, style)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (
-            history_id, current_user.id, university, department, section_code,
-            improved_output, json.dumps(data.get('mindmap_data', {})), style
-        ))
-        
-        # === 扣除配額 ===
-        if result and result[0] != -1:
-            cursor.execute(
-                "UPDATE users SET generation_quota = generation_quota - 1 WHERE id = %s",
-                (current_user.id,)
+        # 进行优化
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": improved_prompt}],
+                temperature=0.5,
+                timeout=180,  # 设置超时时间为 180 秒
+                max_tokens=2000  # 限制生成的令牌数
             )
-        conn.commit()
-        cursor.close()
-        conn.close()
+            improved_output = response.choices[0].message.content.strip()
+            
+            # === 储存生成记录 ===
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            history_id = generate_random_id()
+            cursor.execute("""
+                INSERT INTO generation_history 
+                (id, user_id, university, department, section_code, generated_text, mindmap_data, style)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                history_id, current_user.id, university, department, section_code,
+                improved_output, json.dumps(data.get('mindmap_data', {})), style
+            ))
+            
+            # === 扣除配额 ===
+            if result and result[0] != -1:
+                cursor.execute(
+                    "UPDATE users SET generation_quota = generation_quota - 1 WHERE id = %s",
+                    (current_user.id,)
+                )
+            conn.commit()
+            cursor.close()
+            conn.close()
 
-        return jsonify({
-            "style": style,
-            "adjust_percentage": adjust_percentage,
-            "generated_text": improved_output,
-            "history_id": history_id
-        }), 200, {'Content-Type': 'application/json; charset=utf-8'}
-        
+            return jsonify({
+                "style": style,
+                "adjust_percentage": adjust_percentage,
+                "generated_text": improved_output,
+                "history_id": history_id
+            }), 200, {'Content-Type': 'application/json; charset=utf-8'}
+            
+        except Exception as e:
+            print(f"OpenAI 生成失败: {str(e)}")
+            return jsonify({"error": f"内容优化失败: {str(e)}"}), 500
+            
     except Exception as e:
-        return jsonify({"error": f"GPT 生成內容時發生錯誤: {str(e)}"}), 500
+        print(f"生成段落时发生错误: {str(e)}")
+        return jsonify({"error": f"处理请求失败: {str(e)}"}), 500
 
 # ====重新部分生成====
 @app.route("/regenerate_paragraph", methods=["POST"])
