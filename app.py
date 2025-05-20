@@ -33,12 +33,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ==== Tesseract 設定 ====
-if os.name == 'nt':  # Windows 系統
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    poppler_path = r'C:\poppler\poppler-24.08.0\Library\bin'  # 請根據實際安裝路徑修改
-else:  # Linux/Mac 系統
-    pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
-    poppler_path = None  # Linux 系統會自動尋找 poppler-utils
+pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'  # 容器中的路徑
+poppler_path = None  # 在 Linux 容器中不需要指定 poppler 路徑
 
 # ==== Flask 設定 ====
 app = Flask(__name__)
@@ -1261,13 +1257,18 @@ def process_ocr():
             # 處理 PDF 檔案
             pdf_bytes = file.read()
             try:
-                # Linux 系統下不需要指定 poppler_path
-                images = convert_from_bytes(pdf_bytes) if not poppler_path else convert_from_bytes(pdf_bytes, poppler_path=poppler_path)
+                # 在 Linux 容器中直接使用 convert_from_bytes
+                images = convert_from_bytes(pdf_bytes)
                 
                 text_results = []
                 for image in images:
                     try:
-                        text = pytesseract.image_to_string(image, lang='chi_tra+eng')
+                        # 指定語言包，包含繁體中文和英文
+                        text = pytesseract.image_to_string(
+                            image, 
+                            lang='chi_tra+eng',
+                            config='--psm 1 --oem 1'  # 使用更準確的辨識模式
+                        )
                         if text.strip():
                             text_results.append(text.strip())
                     except Exception as e:
@@ -1287,7 +1288,12 @@ def process_ocr():
         else:
             # 處理一般圖片
             image = Image.open(file)
-            ocr_text = pytesseract.image_to_string(image, lang='chi_tra+eng')
+            # 指定語言包，包含繁體中文和英文
+            ocr_text = pytesseract.image_to_string(
+                image, 
+                lang='chi_tra+eng',
+                config='--psm 1 --oem 1'  # 使用更準確的辨識模式
+            )
         
         # 清理辨識出的文字
         ocr_text = ocr_text.strip()
