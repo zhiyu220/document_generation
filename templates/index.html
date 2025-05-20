@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 
 {% block title %}首頁{% endblock %}
-
 {% block content %}
 <div class="home-container fade-in">
   <h2 class="slide-up">🎓 歡迎使用備審系統</h2>
@@ -14,8 +13,12 @@
   </ul>
 
   <div class="cta slide-up delay-3">
-    <button class="btn btn-primary" onclick="location.href='{{ url_for('show_check_page') }}'">開始查詢備審資料 ➤</button>
-    <button class="btn btn-success" onclick="location.href='{{ url_for('generate_page') }}'">前往段落生成器 ➤</button>
+    <button class="btn btn-primary" onclick="location.href='{{ url_for('show_check_page') }}'">
+      開始查詢備審資料 ➤
+    </button>
+    <button class="btn btn-success" onclick="location.href='{{ url_for('generate_page') }}'">
+      前往段落生成器 ➤
+    </button>
   </div>
 </div>
 {% endblock %}

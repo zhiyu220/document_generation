@@ -7,37 +7,6 @@
       rel="stylesheet"
       href="{{ url_for('static', filename='style.css') }}"
     />
-    <style>
-      .paragraph-card {
-        margin-bottom: 20px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        overflow: hidden;
-      }
-
-      .upload-container {
-        background-color: #f8f9fa;
-        padding: 10px;
-        border-radius: 5px;
-        margin-top: 10px;
-      }
-
-      .upload-container input[type="file"] {
-        margin-bottom: 5px;
-      }
-
-      .upload-container button {
-        margin-left: 10px;
-      }
-
-      .paragraph-header {
-        background-color: #f8f9fa;
-        padding: 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-    </style>
   </head>
   <body>
     <div class="layout fade-in">
@@ -46,42 +15,6 @@
         <h1 class="logo slide-up delay-1">📄 備審系統</h1>
         <nav class="nav-menu slide-up delay-2">
           <h2>功能選單</h2>
-          {% if current_user.is_authenticated %}
-          <button
-            class="tab {% if request.endpoint == 'profile' %}active{% endif %}"
-            onclick="location.href='{{ url_for('profile') }}'"
-          >
-            👤 會員中心
-          </button>
-
-          <button
-            class="tab"
-            onclick="location.href='{{ url_for('purchase') }}'"
-          >
-            💳 升級方案
-          </button>
-
-          <button class="tab" onclick="location.href='{{ url_for('logout') }}'">
-            🚪 登出
-          </button>
-          {% else %}
-          <button
-            class="tab {% if request.endpoint == 'login' %}active{% endif %}"
-            onclick="location.href='{{ url_for('login') }}'"
-          >
-            🔑 登入
-          </button>
-
-          <button
-            class="tab {% if request.endpoint == 'register' %}active{% endif %}"
-            onclick="location.href='{{ url_for('register') }}'"
-          >
-            🆕 註冊
-          </button>
-          {% endif %}
-
-          <hr />
-
           <button
             class="tab {% if request.endpoint == 'index' %}active{% endif %}"
             onclick="location.href='{{ url_for('index') }}'"
