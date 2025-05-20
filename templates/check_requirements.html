@@ -26,51 +26,132 @@
 </form>
 
 {% if results %}
-    <h2>✅ 需繳交資料</h2>
-    <ul>
-        {% for code, name in results %}
-            <li><strong>{{ code }}</strong>: {{ name }}</li>
-        {% endfor %}
-    </ul>
+    <div class="results-container">
+        <div class="section">
+            <h2>✅ 需繳交資料</h2>
+            <div class="requirements-box">
+                <ul>
+                    {% for code, name in results %}
+                        <li><strong>{{ code }}</strong>: {{ name }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
 
-    <h2>🎓 學系特色</h2>
-<div class="department-features-box">
-  {{ department_features }}
-</div>
+        <div class="section">
+            <h2>🎓 學系特色與培養重點</h2>
+            <div class="features-box">
+                {% if features %}
+                    {{ features | safe }}
+                {% else %}
+                    <p>暫無學系特色資料</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📝 備審資料準備建議</h2>
+            <div class="suggestions-box">
+                {% if suggestions %}
+                    {{ suggestions | safe }}
+                {% else %}
+                    <p>暫無備審建議資料</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .results-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .section h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .requirements-box, .features-box, .suggestions-box {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .requirements-box ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .requirements-box li {
+            margin-bottom: 8px;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .features-box, .suggestions-box {
+            white-space: pre-line;
+            line-height: 1.6;
+        }
+        .form-control-check {
+            margin: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .btn-secondary {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-secondary:hover {
+            background-color: #0056b3;
+        }
+    </style>
 {% elif university %}
-    <p>查無相關備審資料，請確認選擇是否正確。</p>
+    <p class="no-results">查無相關備審資料，請確認選擇是否正確。</p>
 {% endif %}
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
-    // 載入學校清單
-  function loadUniversities() {
-  $.get("/get_universities", function (data) {
-    $("#university").empty().append('<option value="">請選擇學校</option>');
-    data.forEach((uni) => {
-      $("#university").append(`<option value="${uni}">${uni}</option>`);
+function loadUniversities() {
+    $.get("/get_universities", function (data) {
+        $("#university").empty().append('<option value="">請選擇學校</option>');
+        data.forEach((uni) => {
+            $("#university").append(`<option value="${uni}">${uni}</option>`);
+        });
     });
-  });
 }
 
 function loadDepartments() {
-  let university = $("#university").val();
-  if (!university) {
-    $("#department").empty().append('<option value="">請先選擇學校</option>');
-    return;
-  }
+    let university = $("#university").val();
+    if (!university) {
+        $("#department").empty().append('<option value="">請先選擇學校</option>');
+        return;
+    }
 
-  $.get(`/get_departments?university=${encodeURIComponent(university)}`, function (departments) {
-    $("#department").empty().append('<option value="">請選擇學系</option>');
-    departments.forEach((dept) => {
-      $("#department").append(`<option value="${dept}">${dept}</option>`);
+    $.get(`/get_departments?university=${encodeURIComponent(university)}`, function (departments) {
+        $("#department").empty().append('<option value="">請選擇學系</option>');
+        departments.forEach((dept) => {
+            $("#department").append(`<option value="${dept}">${dept}</option>`);
+        });
     });
-  });
 }
-$(document).ready(function () {
-  loadUniversities();
-});
 
+$(document).ready(function () {
+    loadUniversities();
+});
 </script>
 {% endblock %}
