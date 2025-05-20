@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {% extends "base.html" %}
 
 {% block title %}首頁{% endblock %}
@@ -21,4 +22,29 @@
     </button>
   </div>
 </div>
+=======
+{% extends "base.html" %}
+
+{% block title %}首頁{% endblock %}
+{% block content %}
+<div class="home-container fade-in">
+  <h2 class="slide-up">🎓 歡迎使用備審系統</h2>
+  <p class="slide-up delay-1">本系統提供以下功能協助你準備大學申請備審資料：</p>
+
+  <ul class="feature-list slide-up delay-2">
+    <li>📋 查詢各校系需繳交資料與學系特色</li>
+    <li>🧠 AI 輔助生成個人化備審段落</li>
+    <li>📥 一鍵下載 Word 文件供上傳</li>
+  </ul>
+
+  <div class="cta slide-up delay-3">
+    <button class="btn btn-primary" onclick="location.href='{{ url_for('show_check_page') }}'">
+      開始查詢備審資料 ➤
+    </button>
+    <button class="btn btn-success" onclick="location.href='{{ url_for('generate_page') }}'">
+      前往段落生成器 ➤
+    </button>
+  </div>
+</div>
+>>>>>>> d3ac93c (Initial commit: add document_generation_test project files)
 {% endblock %}

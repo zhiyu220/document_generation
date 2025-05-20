@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Flask
 openai
 google-generativeai
@@ -6,3 +7,14 @@ langchain-openai
 psycopg2
 python-dotenv
 python-docx
+=======
+Flask
+openai
+google-generativeai
+chromadb
+langchain-openai
+psycopg2
+python-dotenv
+python-docx
+random
+>>>>>>> d3ac93c (Initial commit: add document_generation_test project files)
