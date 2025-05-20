@@ -1,80 +1,3 @@
-<<<<<<< HEAD
-{% extends "base.html" %}
-
-{% block title %}查詢需繳交資料與學系特色{% endblock %}
-{% block content %}
-
-<h2>📋 備審準備指引查詢</h2>
-<form method="POST" action="{{ url_for('check_requirements') }}">
-    <label for="university">學校：</label>
-    <select name="university" id="university" class="form-control-check" required onchange="loadDepartments(this.value)">
-        <option value="">請選擇</option>
-        {% for u, _ in all_options %}
-            <option value="{{ u }}" {% if u == university %}selected{% endif %}>{{ u }}</option>
-        {% endfor %}
-    </select>
-
-    <label for="department">學系：</label>
-    <select name="department" id="department" class="form-control-check" required>
-        {% if department %}
-            <option value="{{ department }}" selected>{{ department }}</option>
-        {% else %}
-            <option value="">請選擇</option>
-        {% endif %}
-    </select>
-
-    <button type="submit" class="btn btn-secondary">查詢</button>
-</form>
-
-{% if results %}
-    <h2>✅ 需繳交資料</h2>
-    <ul>
-        {% for code, name in results %}
-            <li><strong>{{ code }}</strong>: {{ name }}</li>
-        {% endfor %}
-    </ul>
-
-    <h2>🎓 學系特色</h2>
-<div class="department-features-box">
-  {{ department_features }}
-</div>
-{% elif university %}
-    <p>查無相關備審資料，請確認選擇是否正確。</p>
-{% endif %}
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<script>
-    // 載入學校清單
-  function loadUniversities() {
-  $.get("/get_universities", function (data) {
-    $("#university").empty().append('<option value="">請選擇學校</option>');
-    data.forEach((uni) => {
-      $("#university").append(`<option value="${uni}">${uni}</option>`);
-    });
-  });
-}
-
-function loadDepartments() {
-  let university = $("#university").val();
-  if (!university) {
-    $("#department").empty().append('<option value="">請先選擇學校</option>');
-    return;
-  }
-
-  $.get(`/get_departments?university=${encodeURIComponent(university)}`, function (departments) {
-    $("#department").empty().append('<option value="">請選擇學系</option>');
-    departments.forEach((dept) => {
-      $("#department").append(`<option value="${dept}">${dept}</option>`);
-    });
-  });
-}
-$(document).ready(function () {
-  loadUniversities();
-});
-
-</script>
-=======
 {% extends "base.html" %}
 
 {% block title %}查詢需繳交資料與學系特色{% endblock %}
@@ -231,5 +154,4 @@ $(document).ready(function () {
     loadUniversities();
 });
 </script>
->>>>>>> d3ac93c (Initial commit: add document_generation_test project files)
 {% endblock %}

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from flask import Flask, request, jsonify, render_template, send_file
 import os
 import openai
@@ -424,7 +423,6 @@ def generate_docx():
 
 if __name__ == "__main__":
     app.run(debug=True)
-=======
 from flask import Flask, request, jsonify, render_template, send_file, redirect, url_for
 import os
 import openai
@@ -2171,4 +2169,3 @@ def generate_random_id():
         if not exists:
             return random_id
 
->>>>>>> d3ac93c (Initial commit: add document_generation_test project files)
