@@ -38,6 +38,7 @@ if os.name == 'nt':  # Windows 系統
     poppler_path = r'C:\poppler\poppler-24.08.0\Library\bin'  # 請根據實際安裝路徑修改
 else:  # Linux/Mac 系統
     pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
+    poppler_path = None  # Linux 系統會自動尋找 poppler-utils
 
 # ==== Flask 設定 ====
 app = Flask(__name__)
@@ -1114,23 +1115,30 @@ def process_ocr():
         if file_extension == '.pdf':
             # 處理 PDF 檔案
             pdf_bytes = file.read()
-            if os.name == 'nt':
-                images = convert_from_bytes(pdf_bytes, poppler_path=poppler_path)
-            else:
-                images = convert_from_bytes(pdf_bytes)
-            
-            text_results = []
-            for image in images:
-                try:
-                    text = pytesseract.image_to_string(image, lang='chi_tra+eng')
-                    if text.strip():
-                        text_results.append(text.strip())
-                except Exception as e:
-                    print(f"OCR 處理單頁時發生錯誤: {str(e)}")
-                    continue
-            
-            ocr_text = '\n\n'.join(text_results)
-            
+            try:
+                # Linux 系統下不需要指定 poppler_path
+                images = convert_from_bytes(pdf_bytes) if not poppler_path else convert_from_bytes(pdf_bytes, poppler_path=poppler_path)
+                
+                text_results = []
+                for image in images:
+                    try:
+                        text = pytesseract.image_to_string(image, lang='chi_tra+eng')
+                        if text.strip():
+                            text_results.append(text.strip())
+                    except Exception as e:
+                        print(f"OCR 處理單頁時發生錯誤: {str(e)}")
+                        continue
+                
+                ocr_text = '\n\n'.join(text_results)
+                
+            except Exception as e:
+                print(f"PDF 轉換失敗: {str(e)}")
+                return jsonify({
+                    "success": False,
+                    "error": "PDF 處理失敗，請確認檔案格式正確",
+                    "details": str(e)
+                }), 500
+        
         else:
             # 處理一般圖片
             image = Image.open(file)
