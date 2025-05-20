@@ -810,7 +810,7 @@ def generate_paragraph():
         
         input_text = "\n".join(f"{CODE_MAPPING.get(code, code)}: {text}" for code, text in user_inputs.items() if text)
 
-        # 使用LLM初次生成
+        # 使用LLM初次生成，加入表格生成的指示
         first_prompt = f"""
     你是一名高中生，正在申請{university}-{department}，請根據以下內容撰寫 {section_prompt}。
 
@@ -821,6 +821,13 @@ def generate_paragraph():
     4.風格要求：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}
     5.不得杜撰經歷、不得添加未提供的競賽、活動、學術研究等內容。
     6.內容應清晰、邏輯合理、段落流暢，並忠實呈現使用者輸入的重點。
+
+    特別要求：
+    1.請判斷內容是否適合使用表格呈現部分資訊（例如：競賽成果、證照、課程學習等）
+    2.如果適合使用表格，請自行設計適當的表格標題和欄位，並將相關資訊整理成表格
+    3.表格應使用HTML格式，並包含<table>、<tr>、<td>等標籤
+    4.表格的標題應反映其內容，並自動判斷是否需要多個表格
+    5.表格應放在適當的段落位置，並與文字內容自然銜接
 
     請根據這些要求，產生一段符合申請需求的內容。
     """
@@ -841,7 +848,7 @@ def generate_paragraph():
             print(f"Gemini 生成失敗: {str(e)}")
             return jsonify({"error": f"內容生成失敗: {str(e)}"}), 500
 
-        # 進行優化
+        # 進行優化，保留表格結構
         try:
             improved_prompt = f"""
     你是一位擅長潤飾大學申請備審資料的語言專家，請協助我修改以下備審資料，使其自然流暢，語氣真誠，並保留原有內容重點。
@@ -855,7 +862,9 @@ def generate_paragraph():
     3.請避免使用以下 AI 常見用語或句型：如「總體而言」、「本文將探討」、「綜上所述」、「在當今社會中」、「產生深遠影響」、「我堅信」等
     4.請避免過於工整、生硬、過度學術化的句式結構，讓整體語氣更貼近一位真誠且有思考力的高中學生口吻
     5.每個新段落請用 \n\n 分隔，輸出為純文字，不使用 Markdown 語法
-    6.請將文字濃縮至 {word_count} 字以內，保留關鍵資訊與主要邏輯，刪除重複或不必要的詞語，使內容更精練但不失自然語感。
+    6.請將文字濃縮至 {word_count} 字以內，保留關鍵資訊與主要邏輯，刪除重複或不必要的詞語，使內容更精練但不失自然語感
+    7.保留並優化HTML表格的結構和內容，確保表格標題和內容的連貫性
+    8.確保表格與周圍文字的自然銜接
 
     優化後的內容：
     """
@@ -864,7 +873,6 @@ def generate_paragraph():
                 messages=[{"role": "user", "content": improved_prompt}],
                 temperature=0.5,
                 timeout=180,  # 設置超時時間為 180 秒
-                #max_tokens=2000  # 限制生成的令牌數
             )
             improved_output = response.choices[0].message.content.strip()
             
@@ -899,12 +907,12 @@ def generate_paragraph():
             }), 200, {'Content-Type': 'application/json; charset=utf-8'}
             
         except Exception as e:
-            print(f"OpenAI 生成失败: {str(e)}")
-            return jsonify({"error": f"内容优化失败: {str(e)}"}), 500
+            print(f"OpenAI 生成失敗: {str(e)}")
+            return jsonify({"error": f"內容優化失敗: {str(e)}"}), 500
             
     except Exception as e:
-        print(f"生成段落时发生错误: {str(e)}")
-        return jsonify({"error": f"处理请求失败: {str(e)}"}), 500
+        print(f"生成段落時發生錯誤: {str(e)}")
+        return jsonify({"error": f"處理請求失敗: {str(e)}"}), 500
 
 # ====重新部分生成====
 @app.route("/regenerate_paragraph", methods=["POST"])
