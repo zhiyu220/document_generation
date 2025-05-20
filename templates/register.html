@@ -3,92 +3,72 @@
 {% block title %}註冊{% endblock %}
 
 {% block content %}
-<div class="register-container">
-  <h2 class="slide-up">🆕 建立新帳號</h2>
-  <p class="slide-up delay-1">請填寫以下資訊以註冊新帳號。</p>
-
-  <form id="register-form" method="POST" class="register-form slide-up delay-2">
-    <div class="form-group">
-      <label for="email">📧 電子郵件</label>
-      <input type="email" name="email" id="email" class="form-control" required>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-center">註冊帳號</h3>
+                </div>
+                <div class="card-body">
+                    <div id="error-message" class="alert alert-danger" style="display: none;"></div>
+                    <form id="register-form" method="post">
+                        <div class="form-group mb-3">
+                            <label for="email">電子郵件</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="password">密碼</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="confirm_password">確認密碼</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">註冊</button>
+                    </form>
+                    <div class="mt-3 text-center">
+                        <p>已有帳號？<a href="{{ url_for('login') }}">登入</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div class="form-group">
-      <label for="password">🔑 密碼</label>
-      <input type="password" name="password" id="password" class="form-control" required 
-             minlength="6" pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$" 
-             title="密碼至少需要6個字元，且包含至少一個字母和一個數字">
-      <small class="form-text text-muted">密碼至少需要6個字元，且包含至少一個字母和一個數字</small>
-    </div>
-
-    <div class="form-group">
-      <label for="confirm_password">🔄 確認密碼</label>
-      <input type="password" name="confirm_password" id="confirm_password" class="form-control" required>
-    </div>
-
-    <div class="cta slide-up delay-3">
-      <button type="submit" class="btn btn-primary">註冊</button>
-      <a href="{{ url_for('login') }}" class="btn btn-link">已有帳號？返回登入</a>
-    </div>
-  </form>
 </div>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
 document.getElementById('register-form').addEventListener('submit', function(e) {
     e.preventDefault();
     
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm_password').value;
+    // 隱藏錯誤訊息
+    document.getElementById('error-message').style.display = 'none';
     
-    if (password !== confirmPassword) {
-        alert('兩次輸入的密碼不一致');
-        document.getElementById('confirm_password').value = '';
-        document.getElementById('confirm_password').focus();
-        return;
-    }
-    
+    // 取得表單數據
     const formData = new FormData(this);
     
+    // 發送請求
     fetch('/register', {
         method: 'POST',
         body: formData
     })
-    .then(response => {
-        if (response.ok) {
-            window.location.href = '/verify?email=' + encodeURIComponent(document.getElementById('email').value);
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 註冊成功，重定向到驗證頁面
+            window.location.href = data.redirect;
         } else {
-            return response.text().then(text => {
-                throw new Error(text);
-            });
+            // 顯示錯誤訊息
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = data.message;
+            errorMessage.style.display = 'block';
         }
     })
     .catch(error => {
-        alert(error.message);
+        console.error('Error:', error);
+        const errorMessage = document.getElementById('error-message');
+        errorMessage.textContent = '系統錯誤，請稍後再試';
+        errorMessage.style.display = 'block';
     });
-});
-
-// 即時密碼驗證
-document.getElementById('password').addEventListener('input', function() {
-    const password = this.value;
-    const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
-    
-    if (!regex.test(password)) {
-        this.setCustomValidity('密碼至少需要6個字元，且包含至少一個字母和一個數字');
-    } else {
-        this.setCustomValidity('');
-    }
-});
-
-// 即時確認密碼驗證
-document.getElementById('confirm_password').addEventListener('input', function() {
-    const password = document.getElementById('password').value;
-    if (this.value !== password) {
-        this.setCustomValidity('兩次輸入的密碼不一致');
-    } else {
-        this.setCustomValidity('');
-    }
 });
 </script>
 
