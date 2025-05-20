@@ -829,8 +829,12 @@ def generate_paragraph():
             gemini_model = genai.GenerativeModel("gemini-2.0-flash")
             gemini_response = gemini_model.generate_content(
                 first_prompt, 
-                generation_config={"temperature": 0.6},
-                timeout=180  # 設置超時時間為 180 秒
+                generation_config={
+                    "temperature": 0.6,
+                    "max_output_tokens": 2048,
+                    "top_p": 0.8,
+                    "top_k": 40
+                }
             )
             first_output = gemini_response.text.strip()
         except Exception as e:
@@ -1528,7 +1532,12 @@ def generate_mindmap():
         gemini_model = genai.GenerativeModel("gemini-2.0-flash")
         response = gemini_model.generate_content(
             mindmap_prompt,
-            generation_config={"temperature": 0.6}
+            generation_config={
+                "temperature": 0.6,
+                "max_output_tokens": 1024,
+                "top_p": 0.8,
+                "top_k": 40
+            }
         )
         
         # 提取 Mermaid 語法
