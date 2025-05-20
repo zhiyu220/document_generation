@@ -80,61 +80,132 @@ def require_login():
 # ==== 註冊 ====
 # 寄送驗證碼函數
 def send_verification_email(to_email, code):
-    smtp_server = "smtp.gmail.com"  # 這是Gmail的
+    smtp_server = "smtp.gmail.com"
     smtp_port = 587
-    sender_email = os.getenv("SMTP_EMAIL")   # .env 設定寄信帳號
-    sender_password = os.getenv("SMTP_PASSWORD")  # .env 設定寄信密碼
+    sender_email = os.getenv("SMTP_EMAIL")
+    sender_password = os.getenv("SMTP_PASSWORD")
 
+    # 檢查必要的環境變數
+    if not sender_email or not sender_password:
+        print("❌ 缺少 SMTP 設定：請確認 SMTP_EMAIL 和 SMTP_PASSWORD 環境變數已設置")
+        raise ValueError("Missing SMTP credentials")
+
+    # 準備郵件內容
     msg = MIMEText(f"你的備審系統註冊驗證碼是：{code}，請於10分鐘內完成驗證。")
     msg['Subject'] = '【備審系統】Email驗證碼'
     msg['From'] = sender_email
     msg['To'] = to_email
 
-    with smtplib.SMTP(smtp_server, smtp_port) as server:
+    try:
+        # 建立安全連接
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.ehlo()  # 可以幫助識別連接問題
         server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
+        server.ehlo()  # 重新識別
+
+        try:
+            # 使用顯式的登入方法
+            server.login(sender_email, sender_password)
+            print(f"✅ SMTP 登入成功")
+            
+            # 發送郵件
+            server.sendmail(sender_email, to_email, msg.as_string())
+            print(f"✅ 驗證信已發送至 {to_email}")
+            
+        except smtplib.SMTPAuthenticationError as auth_error:
+            print(f"❌ SMTP 認證失敗: {auth_error}")
+            raise ValueError(f"SMTP authentication failed: {str(auth_error)}")
+            
+        except smtplib.SMTPException as smtp_error:
+            print(f"❌ SMTP 錯誤: {smtp_error}")
+            raise ValueError(f"SMTP error: {str(smtp_error)}")
+            
+        finally:
+            try:
+                server.quit()
+            except Exception as e:
+                print(f"⚠️ 關閉 SMTP 連接時發生錯誤: {e}")
+                
+    except Exception as e:
+        print(f"❌ SMTP 連接失敗: {str(e)}")
+        raise ValueError(f"Failed to connect to SMTP server: {str(e)}")
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        confirm_password = request.form['confirm_password']
+        try:
+            email = request.form['email']
+            password = request.form['password']
+            confirm_password = request.form['confirm_password']
 
-        if password != confirm_password:
-            return "❌ 密碼不一致", 400
+            if password != confirm_password:
+                return jsonify({
+                    "success": False,
+                    "message": "❌ 密碼不一致"
+                }), 400
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+            conn = get_db_connection()
+            cursor = conn.cursor()
 
-        # 檢查 email 是否存在
-        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
-        existing_user = cursor.fetchone()
-        if existing_user:
-            cursor.close()
-            conn.close()
-            return "❌ Email 已註冊", 400
+            try:
+                # 檢查 email 是否存在
+                cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+                existing_user = cursor.fetchone()
+                if existing_user:
+                    return jsonify({
+                        "success": False,
+                        "message": "❌ Email 已註冊"
+                    }), 400
 
-        # 產生隨機驗證碼
-        code = ''.join(random.choices(string.digits, k=6))
-        hashed_password = generate_password_hash(password)
-        now = datetime.now(timezone.utc)
+                # 產生隨機驗證碼
+                code = ''.join(random.choices(string.digits, k=6))
+                hashed_password = generate_password_hash(password)
+                now = datetime.now(timezone.utc)
 
-        cursor.execute(
-            "INSERT INTO users (email, password, plan, is_verified, verification_code, verification_sent_at) VALUES (%s, %s, %s, %s, %s, %s)",
-            (email, hashed_password, 'Free', False, code, now)
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
+                # 先儲存用戶資料
+                cursor.execute(
+                    "INSERT INTO users (email, password, plan, is_verified, verification_code, verification_sent_at) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (email, hashed_password, 'Free', False, code, now)
+                )
+                conn.commit()
 
-        # 寄送驗證信
-        send_verification_email(email, code)
+                try:
+                    # 嘗試發送驗證郵件
+                    send_verification_email(email, code)
+                    return jsonify({
+                        "success": True,
+                        "redirect": url_for('verify', email=email)
+                    })
+                    
+                except Exception as e:
+                    # 如果發送失敗，刪除剛才新增的用戶資料
+                    cursor.execute("DELETE FROM users WHERE email = %s", (email,))
+                    conn.commit()
+                    print(f"❌ 驗證信發送失敗，已刪除用戶資料: {str(e)}")
+                    return jsonify({
+                        "success": False,
+                        "message": "❌ 驗證信發送失敗，請稍後再試或聯繫管理員"
+                    }), 500
 
-        return redirect(url_for('verify', email=email))
+            except Exception as e:
+                conn.rollback()
+                print(f"❌ 註冊過程發生錯誤: {str(e)}")
+                return jsonify({
+                    "success": False,
+                    "message": "❌ 註冊失敗，請稍後再試"
+                }), 500
+            finally:
+                cursor.close()
+                conn.close()
 
-    return render_template('register.html')    
+        except Exception as e:
+            print(f"❌ 處理註冊請求時發生錯誤: {str(e)}")
+            return jsonify({
+                "success": False,
+                "message": "❌ 系統錯誤，請稍後再試"
+            }), 500
+
+    return render_template('register.html')
 
 @app.route('/verify', methods=['GET', 'POST'])
 def verify():
