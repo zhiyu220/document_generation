@@ -777,7 +777,7 @@ def clean_paragraph_output(text):
 # ==== 生成段落 ====
 @app.route("/generate_paragraph", methods=["POST"])
 def generate_paragraph():
-    # === 检查剩余次数 ===
+    # === 檢查剩餘次數 ===
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT generation_quota FROM users WHERE id = %s", (current_user.id,))
@@ -786,55 +786,85 @@ def generate_paragraph():
     conn.close()
 
     if result and result[0] != -1 and result[0] <= 0:
-        return jsonify({"error": "❗ 生成次数已用完，请升级为 Premium 会员以获得更多次数！"}), 403
+        return jsonify({"error": "❗ 生成次數已用完，請升級為 Premium 會員以獲得更多次數！"}), 403
     
     try:
         data = request.get_json()
         
         section_code = data.get("section_code")
         user_inputs = data.get("user_inputs", {})
-        university = data.get("university", "未知大学")
-        department = data.get("department", "未知学系")
+        university = data.get("university", "未知大學")
+        department = data.get("department", "未知學系")
         style = data.get("style", "formal")  
         word_count = random.randint(600, 800) 
         adjust_percentage = random.randint(30, 50) 
         
         if section_code not in SECTION_MAPPING:
-            return jsonify({"error": "无效的段落代码"}), 400
+            return jsonify({"error": "無效的段落代碼"}), 400
         
-        # 获取学系特色
+        # 獲取學系特色
         department_features = get_department_features(university, department)
             
-        # 获取撰写指引 (section_prompt)
+        # 獲取撰寫指引 (section_prompt)
         section_prompt = SECTION_MAPPING[section_code]["prompt"]
         
         input_text = "\n".join(f"{CODE_MAPPING.get(code, code)}: {text}" for code, text in user_inputs.items() if text)
 
-        # 使用 Gemini 进行初次生成
+        # 使用LLM初次生成
+        first_prompt = f"""
+    你是一名高中生，正在申請{university}-{department}，請根據以下內容撰寫 {section_prompt}。
+
+    請務必遵守以下規則，嚴格按照使用者提供的內容進行撰寫，不得編造資訊：
+    1.只能使用以下學系特色，不得新增額外內容：{department_features}
+    2.只能使用使用者提供的內容，不得自行發揮：{input_text}
+    3.字數範圍：{word_count} 字以內
+    4.風格要求：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}
+    5.不得杜撰經歷、不得添加未提供的競賽、活動、學術研究等內容。
+    6.內容應清晰、邏輯合理、段落流暢，並忠實呈現使用者輸入的重點。
+
+    請根據這些要求，產生一段符合申請需求的內容。
+    """
+        # 使用 Gemini 進行初次生成
         try:
             gemini_model = genai.GenerativeModel("gemini-2.0-flash")
             gemini_response = gemini_model.generate_content(
                 first_prompt, 
                 generation_config={"temperature": 0.6},
-                timeout=180  # 设置超时时间为 180 秒
+                timeout=180  # 設置超時時間為 180 秒
             )
             first_output = gemini_response.text.strip()
         except Exception as e:
-            print(f"Gemini 生成失败: {str(e)}")
-            return jsonify({"error": f"内容生成失败: {str(e)}"}), 500
+            print(f"Gemini 生成失敗: {str(e)}")
+            return jsonify({"error": f"內容生成失敗: {str(e)}"}), 500
 
-        # 进行优化
+        # 進行優化
         try:
+            improved_prompt = f"""
+    你是一位擅長潤飾大學申請備審資料的語言專家，請協助我修改以下備審資料，使其自然流暢，語氣真誠，並保留原有內容重點。
+
+    目前的內容：
+    {first_output}
+
+    請確保：
+    1.不可新增資訊，只能在原始內容基礎上進行潤飾與語句調整
+    2.風格請採用：{STYLE_PROMPTS.get(style, STYLE_PROMPTS['formal'])}
+    3.請避免使用以下 AI 常見用語或句型：如「總體而言」、「本文將探討」、「綜上所述」、「在當今社會中」、「產生深遠影響」、「我堅信」等
+    4.請避免過於工整、生硬、過度學術化的句式結構，讓整體語氣更貼近一位真誠且有思考力的高中學生口吻
+    5.每個新段落請用 \n\n 分隔，輸出為純文字，不使用 Markdown 語法
+    6.請將文字濃縮至 {word_count} 字以內，保留關鍵資訊與主要邏輯，刪除重複或不必要的詞語，使內容更精練但不失自然語感。
+
+    優化後的內容：
+    """
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": improved_prompt}],
                 temperature=0.5,
-                timeout=180,  # 设置超时时间为 180 秒
-                max_tokens=2000  # 限制生成的令牌数
+                timeout=180,  # 設置超時時間為 180 秒
+                #max_tokens=2000  # 限制生成的令牌數
             )
             improved_output = response.choices[0].message.content.strip()
             
-            # === 储存生成记录 ===
+            # === 儲存生成記錄 ===
             conn = get_db_connection()
             cursor = conn.cursor()
             history_id = generate_random_id()
