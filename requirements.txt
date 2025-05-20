@@ -6,11 +6,4 @@ langchain-openai
 psycopg2
 python-dotenv
 python-docx
-beautifulsoup4
-Pillow
-pytesseract
-pdf2image
-selenium
-webdriver-manager
-flask-login
-Werkzeug
+random
